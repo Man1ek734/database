@@ -4,12 +4,14 @@ const supabaseClient = configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
   : null;
 
-const state={reports:[],promotions:[],demotions:[],dismissals:[],currentView:"dashboard",forcedType:"ALL",query:""};
+const state={reports:[],promotions:[],demotions:[],dismissals:[],currentView:"dashboard",lastNonSearchView:"dashboard",forcedType:"ALL",query:""};
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const normalizeSearch=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+const matchesQuery=(values,q)=>!q || normalizeSearch(values.join(" ")).includes(q);
 
 async function boot(){
   await loadData();
@@ -63,6 +65,7 @@ function renderAll(){
   renderPromotions();
   renderDemotions();
   renderDismissals();
+  renderSearchResults();
 }
 
 function filteredReports(){
@@ -152,12 +155,96 @@ function renderDismissals(){
     </article>`).join("") || '<div class="empty">Brak zwolnień.</div>';
 }
 
+function renderSearchResults(){
+  const grid=$("#searchResultsGrid");
+  const summary=$("#searchSummary");
+  if(!grid || !summary) return;
+
+  const q=normalizeSearch(state.query);
+  if(!q){
+    summary.textContent="Wpisz frazę w wyszukiwarce.";
+    grid.innerHTML='<div class="empty">Brak aktywnego wyszukiwania.</div>';
+    return;
+  }
+
+  const results=[];
+
+  state.reports.forEach(r=>{
+    if(matchesQuery([r.title,r.subject,r.details,r.badge_number,r.author_discord_name,r.report_type],q)){
+      results.push({
+        type:`RAPORT • ${r.report_type}`,
+        title:r.title,
+        subtitle:r.subject || "—",
+        description:r.details || "Brak opisu.",
+        meta:[`Odznaka: ${r.badge_number||"—"}`,`Autor: ${r.author_discord_name||"—"}`,fmt(r.created_at)]
+      });
+    }
+  });
+
+  state.promotions.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.promoted_by,"awans"],q)){
+      results.push({
+        type:"AWANS",
+        title:p.officer_name,
+        subtitle:`${p.old_rank} → ${p.new_rank}`,
+        description:p.reason || "Brak uzasadnienia.",
+        meta:[`Odznaka: ${p.badge_number||"—"}`,`Nadał: ${p.promoted_by||"—"}`,fmt(p.created_at)]
+      });
+    }
+  });
+
+  state.demotions.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by,"degradacja"],q)){
+      results.push({
+        type:"DEGRADACJA",
+        title:p.officer_name,
+        subtitle:`${p.old_rank} → ${p.new_rank}`,
+        description:p.reason || "Brak uzasadnienia.",
+        meta:[`Odznaka: ${p.badge_number||"—"}`,`Zatwierdził: ${p.demoted_by||"—"}`,fmt(p.created_at)]
+      });
+    }
+  });
+
+  state.dismissals.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by,"zwolnienie"],q)){
+      results.push({
+        type:"ZWOLNIENIE",
+        title:p.officer_name,
+        subtitle:`${p.rank||"—"} → ZWOLNIONY`,
+        description:p.reason || "Brak uzasadnienia.",
+        meta:[`Odznaka: ${p.badge_number||"—"}`,`Zatwierdził: ${p.dismissed_by||"—"}`,fmt(p.created_at)]
+      });
+    }
+  });
+
+  summary.textContent=`Znaleziono: ${results.length} • fraza: „${state.query}”`;
+
+  grid.innerHTML=results.map(r=>`
+    <article class="record-card">
+      <div class="record-top">
+        <span class="type-badge">${escapeHtml(r.type)}</span>
+      </div>
+      <h3>${escapeHtml(r.title)}</h3>
+      <div class="promotion-rank">${escapeHtml(r.subtitle)}</div>
+      <p>${escapeHtml(r.description)}</p>
+      <div class="record-meta">
+        ${r.meta.map(m=>`<span>${escapeHtml(m)}</span>`).join("")}
+      </div>
+    </article>`).join("") || '<div class="empty">Nic nie znaleziono.</div>';
+}
+
 function switchView(view){
   state.currentView=view;
+  if(view!=="search") state.lastNonSearchView=view;
   $$(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $$(".view").forEach(v=>v.classList.remove("active-view"));
 
-  if(view==="dashboard"){
+  if(view==="search"){
+    $("#searchResultsView").classList.add("active-view");
+    $("#pageTitle").textContent="Wyniki wyszukiwania";
+    state.forcedType="ALL";
+    renderSearchResults();
+  }else if(view==="dashboard"){
     $("#dashboardView").classList.add("active-view");
     $("#pageTitle").textContent="Dashboard";
     state.forcedType="ALL";
@@ -198,6 +285,21 @@ function switchView(view){
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $$("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.jump)));
 $("#reportTypeFilter").addEventListener("change",()=>{if(state.forcedType==="ALL")renderReports()});
-$("#searchInput").addEventListener("input",e=>{state.query=e.target.value;renderReports();renderPromotions();renderDemotions();renderDismissals()});
+$("#searchInput").addEventListener("input",e=>{
+  state.query=e.target.value;
+  const q=normalizeSearch(state.query);
+
+  if(q){
+    switchView("search");
+  }else{
+    switchView(state.lastNonSearchView || "dashboard");
+  }
+
+  renderReports();
+  renderPromotions();
+  renderDemotions();
+  renderDismissals();
+  renderSearchResults();
+});
 
 boot();
