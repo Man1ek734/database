@@ -122,68 +122,40 @@ function normalizeRoleName(value=""){
 }
 
 function detectLssdRank(roleNames){
-  const aliasMap=[
-    ["Sheriff",["sheriff"]],
-    ["Undersheriff",["undersheriff","under sheriff"]],
-    ["Assistant Sheriff",["assistant sheriff","asst sheriff"]],
-    ["Commander",["commander","cmdr"]],
-    ["Captain II",["captain ii","captain 2","cpt ii","cpt 2"]],
-    ["Captain I",["captain i","captain 1","cpt i","cpt 1"]],
-    ["Lieutenant II",["lieutenant ii","lieutenant 2","lt ii","lt 2"]],
-    ["Lieutenant I",["lieutenant i","lieutenant 1","lt i","lt 1"]],
-    ["Sergeant II",["sergeant ii","sergeant 2","sgt ii","sgt 2"]],
-    ["Sergeant I",["sergeant i","sergeant 1","sgt i","sgt 1"]],
-    ["Corporal II",["corporal ii","corporal 2","cpl ii","cpl 2"]],
-    ["Corporal I",["corporal i","corporal 1","cpl i","cpl 1"]],
-    ["Deputy Sheriff III",["deputy sheriff iii","deputy sheriff 3","ds iii","ds 3","deputy iii","deputy 3"]],
-    ["Deputy Sheriff II",["deputy sheriff ii","deputy sheriff 2","ds ii","ds 2","deputy ii","deputy 2"]],
-    ["Deputy Sheriff I",["deputy sheriff i","deputy sheriff 1","ds i","ds 1","deputy i","deputy 1"]],
-    ["Deputy Sheriff Trainee",[
-      "deputy sheriff trainee",
-      "deputy sheriff training",
-      "training deputy",
-      "trainee deputy",
-      "deputy trainee",
-      "dst"
-    ]]
+  // Dokładne rangi z serwera LSSD. Ozdobniki Discorda są usuwane przez normalizeRoleName().
+  const exactRanks=[
+    "Sheriff",
+    "Undersheriff",
+    "Assistant Sheriff",
+    "Commander",
+    "Captain II",
+    "Captain I",
+    "Lieutenant II",
+    "Lieutenant I",
+    "Sergeant II",
+    "Sergeant I",
+    "Corporal II",
+    "Corporal I",
+    "Deputy Sheriff III",
+    "Deputy Sheriff II",
+    "Deputy Sheriff I",
+    "Deputy Sheriff Trainee"
   ];
 
-  const stripDecorations=value=>{
-    let role=normalizeRoleName(value);
+  const normalizedToRank=new Map(
+    exactRanks.map(rank=>[normalizeRoleName(rank),rank])
+  );
 
-    // Discord roles often have harmless category/prefix text.
-    const prefixes=["lssd","rank","ranga","stopien","stopień","role"];
-    let changed=true;
-    while(changed){
-      changed=false;
-      for(const prefix of prefixes){
-        const p=normalizeRoleName(prefix);
-        if(role.startsWith(p+" ")){
-          role=role.slice(p.length+1).trim();
-          changed=true;
-        }
-      }
-    }
-
-    return role;
-  };
-
-  const hierarchyIndex=new Map(LSSD_RANKS.map((rank,index)=>[rank,index]));
   const found=[];
-
   for(const rawRole of roleNames){
-    const role=stripDecorations(rawRole);
-
-    for(const [rank,aliases] of aliasMap){
-      if(aliases.some(alias=>role===normalizeRoleName(alias))){
-        found.push(rank);
-        break;
-      }
-    }
+    const normalized=normalizeRoleName(rawRole);
+    const rank=normalizedToRank.get(normalized);
+    if(rank) found.push(rank);
   }
 
   if(!found.length) return null;
 
+  const hierarchyIndex=new Map(exactRanks.map((rank,index)=>[rank,index]));
   found.sort((a,b)=>(hierarchyIndex.get(a)??999)-(hierarchyIndex.get(b)??999));
   return found[0];
 }
