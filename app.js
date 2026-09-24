@@ -11,36 +11,7 @@ const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 
-function initials(email="SV"){
-  const raw=email.split("@")[0].replace(/[._-]+/g," ").trim();
-  return raw.split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase() || "SV";
-}
-
 async function boot(){
-  if(!configured){
-    state.reports=[];
-    state.promotions=[];
-    state.demotions=[];
-    state.dismissals=[];
-    $("#loginView").classList.add("hidden");
-    $("#appView").classList.remove("hidden");
-    $("#userName").textContent="LSSD Database";
-    $("#userEmail").textContent="Skonfiguruj Supabase w config.js";
-    $("#userInitials").textContent="DM";
-    renderAll();
-    return;
-  }
-
-  const {data:{session}}=await supabaseClient.auth.getSession();
-  if(session) enterApp(session.user);
-}
-
-async function enterApp(user){
-  $("#loginView").classList.add("hidden");
-  $("#appView").classList.remove("hidden");
-  $("#userEmail").textContent=user.email || "Authorized User";
-  $("#userName").textContent=(user.user_metadata?.display_name || user.email?.split("@")[0] || "Authorized User");
-  $("#userInitials").textContent=initials(user.email);
   await loadData();
 }
 
@@ -224,26 +195,6 @@ function switchView(view){
   }
 }
 
-$("#loginForm").addEventListener("submit",async e=>{
-  e.preventDefault();
-  if(!configured){
-    $("#loginMessage").textContent="Najpierw wpisz SUPABASE_URL i SUPABASE_ANON_KEY w config.js.";
-    return;
-  }
-  $("#loginMessage").textContent="Logowanie...";
-  const {data,error}=await supabaseClient.auth.signInWithPassword({
-    email:$("#loginEmail").value.trim(),
-    password:$("#loginPassword").value
-  });
-  if(error){$("#loginMessage").textContent=error.message;return}
-  $("#loginMessage").textContent="";
-  await enterApp(data.user);
-});
-
-$("#logoutBtn").addEventListener("click",async()=>{
-  if(configured) await supabaseClient.auth.signOut();
-  location.reload();
-});
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $$("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.jump)));
 $("#reportTypeFilter").addEventListener("change",()=>{if(state.forcedType==="ALL")renderReports()});
