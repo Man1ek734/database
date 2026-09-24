@@ -111,6 +111,55 @@ function discordAvatarUrl(userId,hash,guildId=null){
   return "https://cdn.discordapp.com/embed/avatars/"+index+".png";
 }
 
+function normalizeRoleName(value=""){
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function detectLssdRank(roleNames){
+  const normalized=roleNames.map(normalizeRoleName);
+
+  for(const rank of LSSD_RANKS){
+    const target=normalizeRoleName(rank);
+
+    if(normalized.some(role=>{
+      if(role===target) return true;
+      if(role.includes(target)) return true;
+
+      // Common abbreviated Discord-role forms.
+      const t=target
+        .replace("deputy sheriff trainee","dst")
+        .replace("deputy sheriff iii","ds iii")
+        .replace("deputy sheriff ii","ds ii")
+        .replace("deputy sheriff i","ds i")
+        .replace("sergeant ii","sgt ii")
+        .replace("sergeant i","sgt i")
+        .replace("lieutenant ii","lt ii")
+        .replace("lieutenant i","lt i")
+        .replace("captain ii","cpt ii")
+        .replace("captain i","cpt i")
+        .replace("corporal ii","cpl ii")
+        .replace("corporal i","cpl i");
+
+      return role.includes(t);
+    })) return rank;
+  }
+
+  return null;
+}
+
+function cleanServerNickname(value=""){
+  return String(value)
+    .replace(/^\s*\[[^\]]+\]\s*/,"")
+    .replace(/^\s*\([^\)]+\)\s*/,"")
+    .trim();
+}
+
 async function getGuildRoles(){
   if(Date.now()<roleCache.expires && roleCache.roles.length) return roleCache.roles;
   const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/roles";
@@ -132,7 +181,7 @@ async function getMemberPermissions(userId){
     const role=guildRoles.find(r=>r.id===id);
     return role ? role.name : null;
   }).filter(Boolean);
-  const matched=LSSD_RANKS.filter(rank=>names.some(name=>name.toLowerCase()===rank.toLowerCase()));
+  const detectedRank=detectLssdRank(names);
 
   const avatarUrl = member.avatar
     ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
@@ -141,9 +190,9 @@ async function getMemberPermissions(userId){
   return {
     member:true,
     roles:names,
-    rank:matched[0] || null,
-    canEdit:matched.length>0,
-    nickname:member.nick || member.user?.global_name || member.user?.username || null,
+    rank:detectedRank,
+    canEdit:Boolean(detectedRank),
+    nickname:cleanServerNickname(member.nick || member.user?.global_name || member.user?.username || ""),
     memberAvatarUrl:avatarUrl
   };
 }
