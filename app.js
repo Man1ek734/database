@@ -4,7 +4,7 @@ const supabaseClient = configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
   : null;
 
-const state={reports:[],promotions:[],currentView:"dashboard",forcedType:"ALL",query:""};
+const state={reports:[],promotions:[],demotions:[],dismissals:[],currentView:"dashboard",forcedType:"ALL",query:""};
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -20,6 +20,8 @@ async function boot(){
   if(!configured){
     state.reports=[];
     state.promotions=[];
+    state.demotions=[];
+    state.dismissals=[];
     $("#loginView").classList.add("hidden");
     $("#appView").classList.remove("hidden");
     $("#userName").textContent="LSSD Database";
@@ -44,16 +46,25 @@ async function enterApp(user){
 
 async function loadData(){
   if(!configured){renderAll();return}
-  const [{data:reports,error:re},{data:promotions,error:pe}] = await Promise.all([
+  const [
+    {data:reports,error:re},
+    {data:promotions,error:pe},
+    {data:demotions,error:de},
+    {data:dismissals,error:di}
+  ] = await Promise.all([
     supabaseClient.from("reports").select("*").order("created_at",{ascending:false}),
-    supabaseClient.from("promotions").select("*").order("created_at",{ascending:false})
+    supabaseClient.from("promotions").select("*").order("created_at",{ascending:false}),
+    supabaseClient.from("demotions").select("*").order("created_at",{ascending:false}),
+    supabaseClient.from("dismissals").select("*").order("created_at",{ascending:false})
   ]);
-  if(re||pe){
-    console.error(re||pe);
+  if(re||pe||de||di){
+    console.error(re||pe||de||di);
     return;
   }
   state.reports=reports||[];
   state.promotions=promotions||[];
+  state.demotions=demotions||[];
+  state.dismissals=dismissals||[];
   renderAll();
 }
 
@@ -62,6 +73,8 @@ function renderAll(){
   $("#statSpecial").textContent=state.reports.filter(r=>["DTU","SERT"].includes(r.report_type)).length;
   $("#statIad").textContent=state.reports.filter(r=>r.report_type==="IAD").length;
   $("#statPromotions").textContent=state.promotions.length;
+  $("#statDemotions").textContent=state.demotions.length;
+  $("#statDismissals").textContent=state.dismissals.length;
 
   $("#recentReports").innerHTML=state.reports.slice(0,5).map(r=>`
     <div class="compact-item">
@@ -77,6 +90,8 @@ function renderAll(){
 
   renderReports();
   renderPromotions();
+  renderDemotions();
+  renderDismissals();
 }
 
 function filteredReports(){
@@ -128,6 +143,44 @@ function renderPromotions(){
     </article>`).join("") || '<div class="empty">Brak pasujących awansów.</div>';
 }
 
+function renderDemotions(){
+  const q=state.query.toLowerCase().trim();
+  const list=state.demotions.filter(p=>!q || [p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by].join(" ").toLowerCase().includes(q));
+  $("#demotionsGrid").innerHTML=list.map(p=>`
+    <article class="record-card">
+      <div class="record-top">
+        <div><span class="type-badge">DEMOTION</span></div>
+        <small class="muted">${fmt(p.created_at)}</small>
+      </div>
+      <h3>${escapeHtml(p.officer_name)}</h3>
+      <div class="promotion-rank">${escapeHtml(p.old_rank)} <b>→</b> ${escapeHtml(p.new_rank)}</div>
+      <p>${escapeHtml(p.reason||"Brak uzasadnienia.")}</p>
+      <div class="record-meta">
+        <span>Odznaka: ${escapeHtml(p.badge_number||"—")}</span>
+        <span>Zatwierdził: ${escapeHtml(p.demoted_by||"—")}</span>
+      </div>
+    </article>`).join("") || '<div class="empty">Brak degradacji.</div>';
+}
+
+function renderDismissals(){
+  const q=state.query.toLowerCase().trim();
+  const list=state.dismissals.filter(p=>!q || [p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by].join(" ").toLowerCase().includes(q));
+  $("#dismissalsGrid").innerHTML=list.map(p=>`
+    <article class="record-card">
+      <div class="record-top">
+        <div><span class="type-badge">DISMISSAL</span></div>
+        <small class="muted">${fmt(p.created_at)}</small>
+      </div>
+      <h3>${escapeHtml(p.officer_name)}</h3>
+      <div class="promotion-rank">${escapeHtml(p.rank||"—")} <b>→</b> ZWOLNIONY</div>
+      <p>${escapeHtml(p.reason||"Brak uzasadnienia.")}</p>
+      <div class="record-meta">
+        <span>Odznaka: ${escapeHtml(p.badge_number||"—")}</span>
+        <span>Zatwierdził: ${escapeHtml(p.dismissed_by||"—")}</span>
+      </div>
+    </article>`).join("") || '<div class="empty">Brak zwolnień.</div>';
+}
+
 function switchView(view){
   state.currentView=view;
   $$(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
@@ -142,6 +195,16 @@ function switchView(view){
     $("#pageTitle").textContent="Awanse";
     state.forcedType="ALL";
     renderPromotions();
+  }else if(view==="demotions"){
+    $("#demotionsView").classList.add("active-view");
+    $("#pageTitle").textContent="Degradacje";
+    state.forcedType="ALL";
+    renderDemotions();
+  }else if(view==="dismissals"){
+    $("#dismissalsView").classList.add("active-view");
+    $("#pageTitle").textContent="Zwolnienia";
+    state.forcedType="ALL";
+    renderDismissals();
   }else{
     $("#reportsView").classList.add("active-view");
     const map={
@@ -184,6 +247,6 @@ $("#logoutBtn").addEventListener("click",async()=>{
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $$("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.jump)));
 $("#reportTypeFilter").addEventListener("change",()=>{if(state.forcedType==="ALL")renderReports()});
-$("#searchInput").addEventListener("input",e=>{state.query=e.target.value;renderReports();renderPromotions()});
+$("#searchInput").addEventListener("input",e=>{state.query=e.target.value;renderReports();renderPromotions();renderDemotions();renderDismissals()});
 
 boot();
