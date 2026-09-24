@@ -34,19 +34,63 @@ function lssdSetLoggedOut(){
   }
 }
 
+function lssdNormalizeRole(value=""){
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function lssdClassifyRank(rawRole){
+  const ranks=[
+    "Sheriff","Undersheriff","Assistant Sheriff","Commander",
+    "Captain II","Captain I","Lieutenant II","Lieutenant I",
+    "Sergeant II","Sergeant I","Corporal II","Corporal I",
+    "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+  ];
+  const role=lssdNormalizeRole(rawRole);
+  const ordered=[...ranks].sort((a,b)=>lssdNormalizeRole(b).length-lssdNormalizeRole(a).length);
+  for(const rank of ordered){
+    const target=lssdNormalizeRole(rank);
+    if(role===target || role.endsWith(" "+target)) return rank;
+  }
+  return null;
+}
+
+function lssdRankFromRoles(roles=[]){
+  const hierarchy=[
+    "Sheriff","Undersheriff","Assistant Sheriff","Commander",
+    "Captain II","Captain I","Lieutenant II","Lieutenant I",
+    "Sergeant II","Sergeant I","Corporal II","Corporal I",
+    "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+  ];
+  const found=roles.map(lssdClassifyRank).filter(Boolean);
+  for(const rank of hierarchy){
+    if(found.includes(rank)) return rank;
+  }
+  return null;
+}
+
 function lssdSetLoggedIn(data){
   state.auth=data;
   const managementRanks=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
-  const managementByRank=managementRanks.includes(data.rank);
-  state.canEdit=Boolean(data.canEdit || managementByRank);
-  state.canDelete=Boolean(data.canDelete || managementByRank);
+  const rankFromRoles=lssdRankFromRoles(data.roles || []);
+  const effectiveRank=data.rank || rankFromRoles;
+  const managementByRank=managementRanks.includes(effectiveRank);
+
+  state.canEdit=Boolean(data.canEdit || data.isManagement || managementByRank);
+  state.canDelete=Boolean(data.canDelete || data.isManagement || managementByRank);
+
   $("#discordLoginBtn")?.classList.add("hidden");
   $("#discordLogoutBtn")?.classList.remove("hidden");
 
   const pseudonym=data.nickname || data.user?.globalName || data.user?.username || "Discord User";
   $("#userName").textContent=pseudonym;
   $("#userEmail").textContent=data.member ? "Los Santos Sheriff's Department" : "Nie jesteś na serwerze LSSD";
-  $("#userRank").textContent=data.rank ? data.rank : "Brak rozpoznanej rangi";
+  $("#userRank").textContent=effectiveRank || "Brak rozpoznanej rangi";
 
   const avatar=$("#userAvatar");
   if(avatar){
