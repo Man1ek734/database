@@ -117,7 +117,20 @@ async function getMemberPermissions(userId){
     return role ? role.name : null;
   }).filter(Boolean);
   const matched=LSSD_RANKS.filter(rank=>names.some(name=>name.toLowerCase()===rank.toLowerCase()));
-  return {member:true,roles:names,rank:matched[0] || null,canEdit:matched.length>0};
+
+  let avatarUrl=null;
+  if(member.avatar){
+    avatarUrl="https://cdn.discordapp.com/guilds/"+process.env.DISCORD_GUILD_ID+"/users/"+userId+"/avatars/"+member.avatar+".png?size=128";
+  }
+
+  return {
+    member:true,
+    roles:names,
+    rank:matched[0] || null,
+    canEdit:matched.length>0,
+    nickname:member.nick || null,
+    memberAvatarUrl:avatarUrl
+  };
 }
 
 export function startWebApi({writeRecord}){
@@ -239,9 +252,19 @@ export function startWebApi({writeRecord}){
           return;
         }
         const perms=await getMemberPermissions(session.sub);
+        let userAvatarUrl=null;
+        if(session.avatar){
+          userAvatarUrl="https://cdn.discordapp.com/avatars/"+session.sub+"/"+session.avatar+".png?size=128";
+        }
         sendJson(res,200,{
           authenticated:true,
-          user:{id:session.sub,username:session.username,globalName:session.globalName,avatar:session.avatar},
+          user:{
+            id:session.sub,
+            username:session.username,
+            globalName:session.globalName,
+            avatar:session.avatar,
+            avatarUrl:userAvatarUrl
+          },
           ...perms
         },origin,webOrigin);
         return;
