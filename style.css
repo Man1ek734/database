@@ -115,8 +115,25 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 }
 
 .discord-btn{border:1px solid #5865f2;background:#5865f2;color:#fff;border-radius:10px;padding:10px 14px;font-weight:800;font-size:12px}
-.discord-icon-btn{width:42px;height:42px;padding:0;display:grid;place-items:center;flex:0 0 42px;border-radius:12px}
-.discord-icon{width:22px;height:22px;display:block}
+.discord-icon-btn{
+  width:40px;
+  height:40px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  flex:0 0 40px;
+  border-radius:50%;
+  background:#5865F2;
+  border:0;
+  box-shadow:0 4px 12px rgba(0,0,0,.28);
+}
+.discord-icon-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.discord-icon{
+  width:23px;
+  height:23px;
+  display:block;
+  color:#fff;
+}
 .discord-btn:hover{filter:brightness(1.08)}
 .ghost-btn.compact{width:auto;padding:9px 12px}
 .rank-line{color:var(--gold)!important;font-weight:700}
