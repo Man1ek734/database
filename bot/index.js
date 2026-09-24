@@ -1,0 +1,220 @@
+import "dotenv/config";
+import {
+  ActionRowBuilder,
+  Client,
+  EmbedBuilder,
+  GatewayIntentBits,
+  ModalBuilder,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle
+} from "discord.js";
+
+const required=[
+  "DISCORD_TOKEN",
+  "DISCORD_CLIENT_ID",
+  "DISCORD_GUILD_ID",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY"
+];
+
+for(const key of required){
+  if(!process.env[key]) throw new Error(`Brak zmiennej środowiskowej: ${key}`);
+}
+
+const client=new Client({intents:[GatewayIntentBits.Guilds]});
+
+const command=new SlashCommandBuilder()
+  .setName("database")
+  .setDescription("Dodaj wpis do LSSD Records Database");
+
+async function supabaseInsert(table,payload){
+  const res=await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}`,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:`Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer:"return=representation"
+    },
+    body:JSON.stringify(payload)
+  });
+
+  if(!res.ok){
+    const body=await res.text();
+    throw new Error(`Supabase ${res.status}: ${body}`);
+  }
+
+  const data=await res.json();
+  return data[0];
+}
+
+function input(id,label,style=TextInputStyle.Short,required=true,placeholder=""){
+  return new TextInputBuilder()
+    .setCustomId(id)
+    .setLabel(label)
+    .setStyle(style)
+    .setRequired(required)
+    .setPlaceholder(placeholder);
+}
+
+function reportModal(type){
+  const modal=new ModalBuilder()
+    .setCustomId(`report_modal:${type}`)
+    .setTitle(`Raport ${type}`);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("title","Tytuł raportu",TextInputStyle.Short,true,"np. Investigation Report #024")),
+    new ActionRowBuilder().addComponents(input("subject","Dotyczy / osoba / sprawa",TextInputStyle.Short,true,"np. John Doe / Davis Avenue")),
+    new ActionRowBuilder().addComponents(input("badge","Twój numer odznaki",TextInputStyle.Short,true,"np. 530")),
+    new ActionRowBuilder().addComponents(input("details","Treść raportu",TextInputStyle.Paragraph,true,"Opisz przebieg zdarzenia..."))
+  );
+  return modal;
+}
+
+function promotionModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("promotion_modal")
+    .setTitle("Rejestracja awansu");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
+    new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
+    new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień")),
+    new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień")),
+    new ActionRowBuilder().addComponents(input("reason","Powód / uzasadnienie",TextInputStyle.Paragraph,true,"Krótko opisz podstawę awansu"))
+  );
+  return modal;
+}
+
+async function publishPromotion(interaction,row){
+  const channelId=process.env.PROMOTION_CHANNEL_ID;
+  if(!channelId) return;
+
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const embed=new EmbedBuilder()
+    .setTitle("LSSD • PROMOTION NOTICE")
+    .setDescription(`**${row.officer_name}** otrzymuje awans.`)
+    .addFields(
+      {name:"Numer odznaki",value:row.badge_number || "—",inline:true},
+      {name:"Poprzedni stopień",value:row.old_rank,inline:true},
+      {name:"Nowy stopień",value:row.new_rank,inline:true},
+      {name:"Uzasadnienie",value:row.reason || "—"},
+      {name:"Zatwierdził",value:interaction.user.toString()}
+    )
+    .setColor(0xC9AA51)
+    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setTimestamp();
+
+  await channel.send({embeds:[embed]});
+}
+
+async function publishReportLog(interaction,row){
+  const channelId=process.env.DATABASE_LOG_CHANNEL_ID;
+  if(!channelId) return;
+
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const embed=new EmbedBuilder()
+    .setTitle(`DATABASE • ${row.report_type} REPORT`)
+    .setDescription(row.title)
+    .addFields(
+      {name:"Dotyczy",value:row.subject || "—",inline:true},
+      {name:"Odznaka",value:row.badge_number || "—",inline:true},
+      {name:"Autor",value:interaction.user.toString(),inline:true}
+    )
+    .setColor(0xC9AA51)
+    .setFooter({text:"Wpis zapisany w LSSD Records Database"})
+    .setTimestamp();
+
+  await channel.send({embeds:[embed]});
+}
+
+client.once("ready",async()=>{
+  const rest=new REST({version:"10"}).setToken(process.env.DISCORD_TOKEN);
+  await rest.put(
+    Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID,process.env.DISCORD_GUILD_ID),
+    {body:[command.toJSON()]}
+  );
+  console.log(`LSSD Database Bot online jako ${client.user.tag}`);
+});
+
+client.on("interactionCreate",async interaction=>{
+  try{
+    if(interaction.isChatInputCommand() && interaction.commandName==="database"){
+      const menu=new StringSelectMenuBuilder()
+        .setCustomId("database_type")
+        .setPlaceholder("Wybierz rodzaj wpisu")
+        .addOptions(
+          {label:"Raport DTU",value:"DTU",description:"Detective Task Unit"},
+          {label:"Raport SERT",value:"SERT",description:"Special Emergency Response Team"},
+          {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
+          {label:"Raport Deputy",value:"DEPUTY",description:"Raport funkcjonariusza patrolowego"},
+          {label:"Awans",value:"PROMOTION",description:"Rejestracja zmiany stopnia"}
+        );
+
+      await interaction.reply({
+        content:"**LSSD Records Database**\nWybierz rodzaj wpisu:",
+        components:[new ActionRowBuilder().addComponents(menu)],
+        ephemeral:true
+      });
+      return;
+    }
+
+    if(interaction.isStringSelectMenu() && interaction.customId==="database_type"){
+      const type=interaction.values[0];
+      if(type==="PROMOTION") await interaction.showModal(promotionModal());
+      else await interaction.showModal(reportModal(type));
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId.startsWith("report_modal:")){
+      const type=interaction.customId.split(":")[1];
+      await interaction.deferReply({ephemeral:true});
+
+      const row=await supabaseInsert("reports",{
+        report_type:type,
+        title:interaction.fields.getTextInputValue("title"),
+        subject:interaction.fields.getTextInputValue("subject"),
+        badge_number:interaction.fields.getTextInputValue("badge"),
+        details:interaction.fields.getTextInputValue("details"),
+        author_discord_id:interaction.user.id,
+        author_discord_name:interaction.user.globalName || interaction.user.username
+      });
+
+      await publishReportLog(interaction,row);
+      await interaction.editReply(`✅ Raport **${type}** został zapisany w bazie. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="promotion_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const row=await supabaseInsert("promotions",{
+        officer_name:interaction.fields.getTextInputValue("officer"),
+        badge_number:interaction.fields.getTextInputValue("badge"),
+        old_rank:interaction.fields.getTextInputValue("old_rank"),
+        new_rank:interaction.fields.getTextInputValue("new_rank"),
+        reason:interaction.fields.getTextInputValue("reason"),
+        promoted_by:interaction.user.globalName || interaction.user.username,
+        promoted_by_discord_id:interaction.user.id
+      });
+
+      await publishPromotion(interaction,row);
+      await interaction.editReply(`✅ Awans został zapisany w bazie i opublikowany na kanale awansów. ID: \`${row.id}\``);
+    }
+  }catch(error){
+    console.error(error);
+    const msg="❌ Nie udało się zapisać wpisu. Sprawdź konfigurację bota i Supabase.";
+    if(interaction.deferred || interaction.replied) await interaction.editReply(msg).catch(()=>{});
+    else await interaction.reply({content:msg,ephemeral:true}).catch(()=>{});
+  }
+});
+
+client.login(process.env.DISCORD_TOKEN);
