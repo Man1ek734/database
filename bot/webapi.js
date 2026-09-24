@@ -1,0 +1,275 @@
+import { createServer } from "node:http";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+
+const LSSD_RANKS=[
+  "Sheriff","Undersheriff","Assistant Sheriff","Commander",
+  "Captain II","Captain I","Lieutenant II","Lieutenant I",
+  "Sergeant II","Sergeant I","Corporal II","Corporal I",
+  "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+];
+
+const EDIT_FIELDS={
+  reports:["report_type","title","subject","details","badge_number"],
+  promotions:["officer_name","badge_number","old_rank","new_rank","reason"],
+  demotions:["officer_name","badge_number","old_rank","new_rank","reason"],
+  dismissals:["officer_name","badge_number","rank","reason"],
+  resignations:["officer_name","badge_number","rank","end_date","reason"]
+};
+
+const SESSION_TTL_SECONDS=7*24*60*60;
+const roleCache={expires:0,roles:[]};
+
+function settings(){
+  const webAppUrl=process.env.WEB_APP_URL || "https://man1ek734.github.io/database/";
+  const publicBaseUrl=process.env.PUBLIC_BASE_URL || "http://localhost:3000";
+  return {webAppUrl,publicBaseUrl,webOrigin:new URL(webAppUrl).origin};
+}
+
+function signValue(value){
+  if(!process.env.BOT_WRITE_SECRET) throw new Error("Brak BOT_WRITE_SECRET");
+  return createHmac("sha256",process.env.BOT_WRITE_SECRET).update(value).digest("base64url");
+}
+
+function createSession(user){
+  const now=Math.floor(Date.now()/1000);
+  const payload=Buffer.from(JSON.stringify({
+    sub:user.id,
+    username:user.username,
+    globalName:user.global_name || user.username,
+    avatar:user.avatar || null,
+    iat:now,
+    exp:now+SESSION_TTL_SECONDS
+  })).toString("base64url");
+  return payload+"."+signValue(payload);
+}
+
+function verifySession(token){
+  if(!token || !token.includes(".")) return null;
+  const parts=token.split(".");
+  const payload=parts[0];
+  const sig=parts[1];
+  const expected=signValue(payload);
+  const a=Buffer.from(sig || "");
+  const b=Buffer.from(expected);
+  if(a.length!==b.length || !timingSafeEqual(a,b)) return null;
+  try{
+    const data=JSON.parse(Buffer.from(payload,"base64url").toString("utf8"));
+    if(!data.exp || data.exp<Math.floor(Date.now()/1000)) return null;
+    return data;
+  }catch{return null}
+}
+
+function parseCookies(header=""){
+  const result={};
+  for(const raw of header.split(";")){
+    const item=raw.trim();
+    if(!item) continue;
+    const i=item.indexOf("=");
+    if(i<0) continue;
+    result[decodeURIComponent(item.slice(0,i))]=decodeURIComponent(item.slice(i+1));
+  }
+  return result;
+}
+
+function getBearer(req){
+  const h=req.headers.authorization || "";
+  return h.startsWith("Bearer ") ? h.slice(7) : "";
+}
+
+function sendJson(res,status,data,origin,webOrigin){
+  if(origin===webOrigin){
+    res.setHeader("Access-Control-Allow-Origin",webOrigin);
+    res.setHeader("Vary","Origin");
+  }
+  res.setHeader("Content-Type","application/json; charset=utf-8");
+  res.statusCode=status;
+  res.end(JSON.stringify(data));
+}
+
+async function readJson(req){
+  let body="";
+  for await(const chunk of req){
+    body+=chunk;
+    if(body.length>100000) throw new Error("Payload too large");
+  }
+  return body ? JSON.parse(body) : {};
+}
+
+async function getGuildRoles(){
+  if(Date.now()<roleCache.expires && roleCache.roles.length) return roleCache.roles;
+  const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/roles";
+  const res=await fetch(url,{headers:{Authorization:"Bot "+process.env.DISCORD_TOKEN}});
+  if(!res.ok) throw new Error("Discord roles "+res.status);
+  roleCache.roles=await res.json();
+  roleCache.expires=Date.now()+5*60*1000;
+  return roleCache.roles;
+}
+
+async function getMemberPermissions(userId){
+  const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/members/"+userId;
+  const memberRes=await fetch(url,{headers:{Authorization:"Bot "+process.env.DISCORD_TOKEN}});
+  if(memberRes.status===404) return {member:false,roles:[],rank:null,canEdit:false};
+  if(!memberRes.ok) throw new Error("Discord member "+memberRes.status);
+  const member=await memberRes.json();
+  const guildRoles=await getGuildRoles();
+  const names=member.roles.map(id=>{
+    const role=guildRoles.find(r=>r.id===id);
+    return role ? role.name : null;
+  }).filter(Boolean);
+  const matched=LSSD_RANKS.filter(rank=>names.some(name=>name.toLowerCase()===rank.toLowerCase()));
+  return {member:true,roles:names,rank:matched[0] || null,canEdit:matched.length>0};
+}
+
+export function startWebApi({writeRecord}){
+  const {webAppUrl,publicBaseUrl,webOrigin}=settings();
+
+  const server=createServer(async(req,res)=>{
+    const origin=req.headers.origin || null;
+    try{
+      const url=new URL(req.url || "/",publicBaseUrl);
+
+      if(req.method==="OPTIONS"){
+        if(origin===webOrigin){
+          res.setHeader("Access-Control-Allow-Origin",webOrigin);
+          res.setHeader("Access-Control-Allow-Headers","Authorization, Content-Type");
+          res.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS");
+          res.setHeader("Vary","Origin");
+        }
+        res.statusCode=204;
+        res.end();
+        return;
+      }
+
+      if(url.pathname==="/health"){
+        sendJson(res,200,{ok:true},origin,webOrigin);
+        return;
+      }
+
+      if(url.pathname==="/auth/discord"){
+        if(!process.env.DISCORD_CLIENT_SECRET){
+          res.statusCode=503;
+          res.setHeader("Content-Type","text/plain; charset=utf-8");
+          res.end("Discord OAuth nie jest jeszcze skonfigurowany.");
+          return;
+        }
+        const state=randomBytes(24).toString("base64url");
+        const redirectUri=publicBaseUrl+"/auth/discord/callback";
+        const auth=new URL("https://discord.com/oauth2/authorize");
+        auth.searchParams.set("client_id",process.env.DISCORD_CLIENT_ID);
+        auth.searchParams.set("response_type","code");
+        auth.searchParams.set("redirect_uri",redirectUri);
+        auth.searchParams.set("scope","identify");
+        auth.searchParams.set("state",state);
+        res.setHeader("Set-Cookie","oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600");
+        res.statusCode=302;
+        res.setHeader("Location",auth.toString());
+        res.end();
+        return;
+      }
+
+      if(url.pathname==="/auth/discord/callback"){
+        const code=url.searchParams.get("code");
+        const state=url.searchParams.get("state");
+        const cookies=parseCookies(req.headers.cookie || "");
+        if(!code || !state || !cookies.oauth_state || state!==cookies.oauth_state){
+          res.statusCode=400;
+          res.end("Nieprawidlowy stan logowania Discord.");
+          return;
+        }
+        const redirectUri=publicBaseUrl+"/auth/discord/callback";
+        const tokenRes=await fetch("https://discord.com/api/v10/oauth2/token",{
+          method:"POST",
+          headers:{"Content-Type":"application/x-www-form-urlencoded"},
+          body:new URLSearchParams({
+            client_id:process.env.DISCORD_CLIENT_ID,
+            client_secret:process.env.DISCORD_CLIENT_SECRET,
+            grant_type:"authorization_code",
+            code,
+            redirect_uri:redirectUri
+          })
+        });
+        if(!tokenRes.ok){
+          console.error("Discord OAuth token error",await tokenRes.text());
+          res.statusCode=502;
+          res.end("Nie udalo sie zalogowac przez Discord.");
+          return;
+        }
+        const tokenData=await tokenRes.json();
+        const userRes=await fetch("https://discord.com/api/v10/users/@me",{
+          headers:{Authorization:"Bearer "+tokenData.access_token}
+        });
+        if(!userRes.ok){
+          res.statusCode=502;
+          res.end("Nie udalo sie pobrac konta Discord.");
+          return;
+        }
+        const user=await userRes.json();
+        const session=createSession(user);
+        res.setHeader("Set-Cookie","oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+        res.statusCode=302;
+        res.setHeader("Location",webAppUrl+"#discord_session="+encodeURIComponent(session));
+        res.end();
+        return;
+      }
+
+      if(url.pathname==="/api/me" && req.method==="GET"){
+        const session=verifySession(getBearer(req));
+        if(!session){
+          sendJson(res,401,{authenticated:false},origin,webOrigin);
+          return;
+        }
+        const perms=await getMemberPermissions(session.sub);
+        sendJson(res,200,{
+          authenticated:true,
+          user:{id:session.sub,username:session.username,globalName:session.globalName,avatar:session.avatar},
+          ...perms
+        },origin,webOrigin);
+        return;
+      }
+
+      if(url.pathname==="/api/update" && req.method==="POST"){
+        const session=verifySession(getBearer(req));
+        if(!session){
+          sendJson(res,401,{error:"Musisz zalogowac sie przez Discord."},origin,webOrigin);
+          return;
+        }
+        const perms=await getMemberPermissions(session.sub);
+        if(!perms.canEdit){
+          sendJson(res,403,{error:"Brak rangi LSSD uprawniajacej do edycji."},origin,webOrigin);
+          return;
+        }
+        const body=await readJson(req);
+        const table=body.table;
+        const id=body.id;
+        const changes=body.changes;
+        const allowed=EDIT_FIELDS[table];
+        if(!allowed || !id || !changes || typeof changes!=="object" || Array.isArray(changes)){
+          sendJson(res,400,{error:"Nieprawidlowe dane."},origin,webOrigin);
+          return;
+        }
+        const clean={};
+        for(const key of allowed){
+          if(Object.prototype.hasOwnProperty.call(changes,key)){
+            clean[key]=typeof changes[key]==="string" ? changes[key].trim() : changes[key];
+          }
+        }
+        if(!Object.keys(clean).length){
+          sendJson(res,400,{error:"Brak pol do zmiany."},origin,webOrigin);
+          return;
+        }
+        const row=await writeRecord("update",table,clean,id);
+        sendJson(res,200,{ok:true,row,rank:perms.rank},origin,webOrigin);
+        return;
+      }
+
+      sendJson(res,404,{error:"Not found"},origin,webOrigin);
+    }catch(error){
+      console.error("HTTP API error",error);
+      sendJson(res,500,{error:"Blad serwera."},origin,webOrigin);
+    }
+  });
+
+  server.listen(Number(process.env.PORT || 3000),"0.0.0.0",()=>{
+    console.log("LSSD web API listening on port "+(process.env.PORT || 3000));
+  });
+}
