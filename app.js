@@ -4,9 +4,6 @@ const supabaseClient = configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
   : null;
 
-const demoReports = [];
-const demoPromotions = [];
-
 const state={reports:[],promotions:[],currentView:"dashboard",forcedType:"ALL",query:""};
 
 const $=s=>document.querySelector(s);
@@ -21,11 +18,11 @@ function initials(email="SV"){
 
 async function boot(){
   if(!configured){
-    state.reports=demoReports;
-    state.promotions=demoPromotions;
+    state.reports=[];
+    state.promotions=[];
     $("#loginView").classList.add("hidden");
     $("#appView").classList.remove("hidden");
-    $("#userName").textContent="Demo Mode";
+    $("#userName").textContent="LSSD Database";
     $("#userEmail").textContent="Skonfiguruj Supabase w config.js";
     $("#userInitials").textContent="DM";
     renderAll();
