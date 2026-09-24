@@ -11,6 +11,7 @@ const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeSearch=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+const reportTypeLabel=t=>t==="WEAPON_LOSS"?"UTRATA BRONI":t;
 const matchesQuery=(values,q)=>{
   if(!q) return true;
   const hay=normalizeSearch(values.join(" "));
@@ -92,7 +93,7 @@ function renderReports(){
   $("#reportsGrid").innerHTML=list.map(r=>`
     <article class="record-card">
       <div class="record-top">
-        <div><span class="type-badge">${escapeHtml(r.report_type)}</span></div>
+        <div><span class="type-badge">${escapeHtml(reportTypeLabel(r.report_type))}</span></div>
         <small class="muted">${fmt(r.created_at)}</small>
       </div>
       <h3>${escapeHtml(r.title)}</h3>
@@ -180,7 +181,7 @@ function renderSearchResults(){
   state.reports.forEach(r=>{
     if(matchesQuery([r.title,r.subject,r.details,r.badge_number,r.author_discord_name,r.report_type],q)){
       results.push({
-        type:`RAPORT • ${r.report_type}`,
+        type:`RAPORT • ${reportTypeLabel(r.report_type)}`,
         title:r.title,
         subtitle:r.subject || "—",
         description:r.details || "Brak opisu.",
@@ -290,7 +291,8 @@ function switchView(view){
       "reports-dtu":["Raporty DTU","DTU"],
       "reports-sert":["Raporty SERT","SERT"],
       "reports-iad":["Raporty IAD","IAD"],
-      "reports-deputy":["Raporty Deputy","DEPUTY"]
+      "reports-deputy":["Raporty Deputy","DEPUTY"],
+      "reports-weapon-loss":["Utrata broni","WEAPON_LOSS"]
     };
     const [label,type]=map[view]||map["reports-all"];
     $("#pageTitle").textContent=label;
