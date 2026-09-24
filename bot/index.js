@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { startWebApi } from "./webapi.js";
+import { startWebApi, createDiscordLoginLink } from "./webapi.js";
 import {
   ActionRowBuilder,
   Client,
@@ -27,6 +27,7 @@ for(const key of required){
 const client=new Client({intents:[GatewayIntentBits.Guilds]});
 
 const commands=[
+  new SlashCommandBuilder().setName("login").setDescription("Zaloguj się do LSSD Records Database przez Discord"),
   new SlashCommandBuilder().setName("database").setDescription("Otwórz główne menu LSSD Records Database"),
   new SlashCommandBuilder().setName("raport").setDescription("Dodaj raport do LSSD Records Database")
     .addStringOption(o=>o.setName("typ").setDescription("Rodzaj raportu").setRequired(true)
@@ -260,6 +261,15 @@ client.once("ready",async()=>{
 
 client.on("interactionCreate",async interaction=>{
   try{
+    if(interaction.isChatInputCommand() && interaction.commandName==="login"){
+      const link=createDiscordLoginLink(interaction.user);
+      await interaction.reply({
+        content:"🔐 **Logowanie do LSSD Records Database**\nKliknij poniższy link, aby zalogować się kontem Discord. Link jest jednorazowy i ważny przez 10 minut.\n\n"+link,
+        ephemeral:true
+      });
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="awans"){
       await interaction.showModal(promotionModal());
       return;
