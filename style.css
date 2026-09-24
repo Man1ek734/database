@@ -115,6 +115,8 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 }
 
 .discord-btn{border:1px solid #5865f2;background:#5865f2;color:#fff;border-radius:10px;padding:10px 14px;font-weight:800;font-size:12px}
+.discord-icon-btn{width:42px;height:42px;padding:0;display:grid;place-items:center;flex:0 0 42px;border-radius:12px}
+.discord-icon{width:22px;height:22px;display:block}
 .discord-btn:hover{filter:brightness(1.08)}
 .ghost-btn.compact{width:auto;padding:9px 12px}
 .rank-line{color:var(--gold)!important;font-weight:700}
