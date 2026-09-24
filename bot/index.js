@@ -42,28 +42,26 @@ const commands=[
 ];
 
 async function supabaseInsert(table,payload){
-  if(!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY){
+  if(!process.env.SUPABASE_URL || !process.env.BOT_WRITE_SECRET){
     throw new Error("Supabase nie jest jeszcze skonfigurowany.");
   }
 
-  const res=await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}`,{
+  const res=await fetch(`${process.env.SUPABASE_URL}/functions/v1/lssd-bot-write`,{
     method:"POST",
     headers:{
       "Content-Type":"application/json",
-      apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization:`Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer:"return=representation"
+      "x-bot-secret":process.env.BOT_WRITE_SECRET
     },
-    body:JSON.stringify(payload)
+    body:JSON.stringify({table,payload})
   });
 
+  const data=await res.json().catch(()=>({}));
+
   if(!res.ok){
-    const body=await res.text();
-    throw new Error(`Supabase ${res.status}: ${body}`);
+    throw new Error(`Supabase ${res.status}: ${data.error || "Unknown error"}`);
   }
 
-  const data=await res.json();
-  return data[0];
+  return data;
 }
 
 function input(id,label,style=TextInputStyle.Short,required=true,placeholder=""){
