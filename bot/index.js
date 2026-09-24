@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { startWebApi } from "./webapi.js";
 import {
   ActionRowBuilder,
   Client,
@@ -41,7 +42,7 @@ const commands=[
   new SlashCommandBuilder().setName("wypowiedzenia").setDescription("Zarejestruj wypowiedzenie funkcjonariusza")
 ];
 
-async function supabaseInsert(table,payload){
+async function supabaseWrite(action,table,payload,id=null){
   if(!process.env.SUPABASE_URL || !process.env.BOT_WRITE_SECRET){
     throw new Error("Supabase nie jest jeszcze skonfigurowany.");
   }
@@ -52,7 +53,7 @@ async function supabaseInsert(table,payload){
       "Content-Type":"application/json",
       "x-bot-secret":process.env.BOT_WRITE_SECRET
     },
-    body:JSON.stringify({table,payload})
+    body:JSON.stringify({action,table,payload,id})
   });
 
   const data=await res.json().catch(()=>({}));
@@ -63,6 +64,8 @@ async function supabaseInsert(table,payload){
 
   return data;
 }
+
+const supabaseInsert=(table,payload)=>supabaseWrite("insert",table,payload);
 
 function input(id,label,style=TextInputStyle.Short,required=true,placeholder=""){
   return new TextInputBuilder()
@@ -410,5 +413,7 @@ client.on("interactionCreate",async interaction=>{
     else await interaction.reply({content:msg,ephemeral:true}).catch(()=>{});
   }
 });
+
+startWebApi({writeRecord:supabaseWrite});
 
 client.login(process.env.DISCORD_TOKEN);
