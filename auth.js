@@ -36,8 +36,10 @@ function lssdSetLoggedOut(){
 
 function lssdSetLoggedIn(data){
   state.auth=data;
-  state.canEdit=Boolean(data.canEdit);
-  state.canDelete=Boolean(data.canDelete);
+  const managementRanks=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+  const managementByRank=managementRanks.includes(data.rank);
+  state.canEdit=Boolean(data.canEdit || managementByRank);
+  state.canDelete=Boolean(data.canDelete || managementByRank);
   $("#discordLoginBtn")?.classList.add("hidden");
   $("#discordLogoutBtn")?.classList.remove("hidden");
 
