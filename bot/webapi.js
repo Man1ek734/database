@@ -18,7 +18,6 @@ const EDIT_FIELDS={
 
 const SESSION_TTL_SECONDS=7*24*60*60;
 const roleCache={expires:0,roles:[]};
-const loginTokens=new Map();
 
 function settings(){
   const webAppUrl=process.env.WEB_APP_URL || "https://man1ek734.github.io/database/";
@@ -42,21 +41,6 @@ function createSession(user){
     exp:now+SESSION_TTL_SECONDS
   })).toString("base64url");
   return payload+"."+signValue(payload);
-}
-
-export function createDiscordLoginLink(user){
-  const {webAppUrl}=settings();
-  const token=randomBytes(32).toString("base64url");
-  loginTokens.set(token,{
-    user:{
-      id:user.id,
-      username:user.username,
-      global_name:user.globalName || user.username,
-      avatar:user.avatar || null
-    },
-    expires:Date.now()+10*60*1000
-  });
-  return webAppUrl+"#discord_login="+encodeURIComponent(token);
 }
 
 function verifySession(token){
@@ -162,20 +146,16 @@ export function startWebApi({writeRecord}){
       }
 
       if(url.pathname==="/auth/discord"){
-        if(!process.env.DISCORD_CLIENT_SECRET){
-          res.statusCode=503;
-          res.setHeader("Content-Type","text/plain; charset=utf-8");
-          res.end("Discord OAuth nie jest jeszcze skonfigurowany.");
-          return;
-        }
         const state=randomBytes(24).toString("base64url");
         const redirectUri=publicBaseUrl+"/auth/discord/callback";
         const auth=new URL("https://discord.com/oauth2/authorize");
         auth.searchParams.set("client_id",process.env.DISCORD_CLIENT_ID);
-        auth.searchParams.set("response_type","code");
+        auth.searchParams.set("response_type","token");
         auth.searchParams.set("redirect_uri",redirectUri);
         auth.searchParams.set("scope","identify");
         auth.searchParams.set("state",state);
+        auth.searchParams.set("prompt","consent");
+
         res.setHeader("Set-Cookie","oauth_state="+encodeURIComponent(state)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600");
         res.statusCode=302;
         res.setHeader("Location",auth.toString());
@@ -184,61 +164,70 @@ export function startWebApi({writeRecord}){
       }
 
       if(url.pathname==="/auth/discord/callback"){
-        const code=url.searchParams.get("code");
-        const state=url.searchParams.get("state");
         const cookies=parseCookies(req.headers.cookie || "");
-        if(!code || !state || !cookies.oauth_state || state!==cookies.oauth_state){
-          res.statusCode=400;
-          res.end("Nieprawidlowy stan logowania Discord.");
-          return;
-        }
-        const redirectUri=publicBaseUrl+"/auth/discord/callback";
-        const tokenRes=await fetch("https://discord.com/api/v10/oauth2/token",{
-          method:"POST",
-          headers:{"Content-Type":"application/x-www-form-urlencoded"},
-          body:new URLSearchParams({
-            client_id:process.env.DISCORD_CLIENT_ID,
-            client_secret:process.env.DISCORD_CLIENT_SECRET,
-            grant_type:"authorization_code",
-            code,
-            redirect_uri:redirectUri
-          })
-        });
-        if(!tokenRes.ok){
-          console.error("Discord OAuth token error",await tokenRes.text());
-          res.statusCode=502;
-          res.end("Nie udalo sie zalogowac przez Discord.");
-          return;
-        }
-        const tokenData=await tokenRes.json();
-        const userRes=await fetch("https://discord.com/api/v10/users/@me",{
-          headers:{Authorization:"Bearer "+tokenData.access_token}
-        });
-        if(!userRes.ok){
-          res.statusCode=502;
-          res.end("Nie udalo sie pobrac konta Discord.");
-          return;
-        }
-        const user=await userRes.json();
-        const session=createSession(user);
+        const expectedState=String(cookies.oauth_state || "");
+        const target=JSON.stringify(webAppUrl);
+        const expected=JSON.stringify(expectedState);
+
+        res.statusCode=200;
+        res.setHeader("Content-Type","text/html; charset=utf-8");
+        res.setHeader("Cache-Control","no-store");
         res.setHeader("Set-Cookie","oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
-        res.statusCode=302;
-        res.setHeader("Location",webAppUrl+"#discord_session="+encodeURIComponent(session));
-        res.end();
+        res.end(`<!doctype html>
+<html lang="pl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Logowanie Discord</title></head>
+<body style="font-family:system-ui;background:#090d15;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0">
+<div id="msg">Logowanie przez Discord...</div>
+<script>
+(async()=>{
+  const params=new URLSearchParams(location.hash.slice(1));
+  const expected=${expected};
+  const state=params.get("state")||"";
+  const token=params.get("access_token")||"";
+  const msg=document.getElementById("msg");
+
+  if(!token || !expected || state!==expected){
+    msg.textContent="Nie udało się zweryfikować logowania Discord.";
+    return;
+  }
+
+  try{
+    const r=await fetch("/api/discord-login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({access_token:token})
+    });
+    const data=await r.json();
+    if(!r.ok || !data.session) throw new Error(data.error||"Błąd logowania");
+    location.replace(${target}+"#discord_session="+encodeURIComponent(data.session));
+  }catch(e){
+    msg.textContent="Nie udało się zalogować przez Discord. Spróbuj ponownie.";
+  }
+})();
+</script>
+</body>
+</html>`);
         return;
       }
 
-      if(url.pathname==="/api/claim-login" && req.method==="POST"){
+      if(url.pathname==="/api/discord-login" && req.method==="POST"){
         const body=await readJson(req);
-        const token=String(body.token || "");
-        const entry=loginTokens.get(token);
-        if(!entry || entry.expires<Date.now()){
-          loginTokens.delete(token);
-          sendJson(res,401,{error:"Link logowania wygasł albo został już użyty."},origin,webOrigin);
+        const accessToken=String(body.access_token || "");
+        if(!accessToken){
+          sendJson(res,400,{error:"Brak tokenu Discord."},origin,webOrigin);
           return;
         }
-        loginTokens.delete(token);
-        const session=createSession(entry.user);
+
+        const userRes=await fetch("https://discord.com/api/v10/users/@me",{
+          headers:{Authorization:"Bearer "+accessToken}
+        });
+        if(!userRes.ok){
+          sendJson(res,401,{error:"Nieprawidłowe logowanie Discord."},origin,webOrigin);
+          return;
+        }
+
+        const user=await userRes.json();
+        const session=createSession(user);
         sendJson(res,200,{session},origin,webOrigin);
         return;
       }
