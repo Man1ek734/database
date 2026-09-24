@@ -27,9 +27,21 @@ for(const key of required){
 
 const client=new Client({intents:[GatewayIntentBits.Guilds]});
 
-const command=new SlashCommandBuilder()
-  .setName("database")
-  .setDescription("Dodaj wpis do LSSD Records Database");
+const commands=[
+  new SlashCommandBuilder().setName("database").setDescription("Otwórz główne menu LSSD Records Database"),
+  new SlashCommandBuilder().setName("raport").setDescription("Dodaj raport do LSSD Records Database")
+    .addStringOption(o=>o.setName("typ").setDescription("Rodzaj raportu").setRequired(true)
+      .addChoices(
+        {name:"DTU",value:"DTU"},
+        {name:"SERT",value:"SERT"},
+        {name:"IAD",value:"IAD"},
+        {name:"Deputy",value:"DEPUTY"}
+      )),
+  new SlashCommandBuilder().setName("awans").setDescription("Zarejestruj awans funkcjonariusza"),
+  new SlashCommandBuilder().setName("degrad").setDescription("Zarejestruj degradację funkcjonariusza"),
+  new SlashCommandBuilder().setName("zwolnienia").setDescription("Zarejestruj zwolnienie funkcjonariusza"),
+  new SlashCommandBuilder().setName("wypowiedzenia").setDescription("Zarejestruj wypowiedzenie funkcjonariusza")
+];
 
 async function supabaseInsert(table,payload){
   const res=await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}`,{
@@ -218,13 +230,34 @@ client.once("ready",async()=>{
   const rest=new REST({version:"10"}).setToken(process.env.DISCORD_TOKEN);
   await rest.put(
     Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID,process.env.DISCORD_GUILD_ID),
-    {body:[command.toJSON()]}
+    {body:commands.map(command=>command.toJSON())}
   );
   console.log(`LSSD Database Bot online jako ${client.user.tag}`);
 });
 
 client.on("interactionCreate",async interaction=>{
   try{
+    if(interaction.isChatInputCommand() && interaction.commandName==="awans"){
+      await interaction.showModal(promotionModal());
+      return;
+    }
+
+    if(interaction.isChatInputCommand() && interaction.commandName==="degrad"){
+      await interaction.showModal(demotionModal());
+      return;
+    }
+
+    if(interaction.isChatInputCommand() && interaction.commandName==="zwolnienia"){
+      await interaction.showModal(dismissalModal());
+      return;
+    }
+
+    if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
+      const type=interaction.options.getString("typ",true);
+      await interaction.showModal(reportModal(type));
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="database"){
       const menu=new StringSelectMenuBuilder()
         .setCustomId("database_type")
@@ -236,7 +269,8 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport Deputy",value:"DEPUTY",description:"Raport funkcjonariusza patrolowego"},
           {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
           {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
-          {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"}
+          {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"},
+          {label:"Wypowiedzenie",value:"RESIGNATION",description:"Rejestracja wypowiedzenia"}
         );
 
       await interaction.reply({
