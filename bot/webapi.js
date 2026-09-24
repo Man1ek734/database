@@ -128,41 +128,30 @@ function normalizeRoleName(value=""){
     .trim();
 }
 
-function detectLssdRank(roleNames){
-  // Dokładne rangi z serwera LSSD. Ozdobniki Discorda są usuwane przez normalizeRoleName().
-  const exactRanks=[
-    "Sheriff",
-    "Undersheriff",
-    "Assistant Sheriff",
-    "Commander",
-    "Captain II",
-    "Captain I",
-    "Lieutenant II",
-    "Lieutenant I",
-    "Sergeant II",
-    "Sergeant I",
-    "Corporal II",
-    "Corporal I",
-    "Deputy Sheriff III",
-    "Deputy Sheriff II",
-    "Deputy Sheriff I",
-    "Deputy Sheriff Trainee"
-  ];
+function classifyLssdRank(rawRole){
+  const role=normalizeRoleName(rawRole);
+  if(!role) return null;
 
-  const normalizedToRank=new Map(
-    exactRanks.map(rank=>[normalizeRoleName(rank),rank])
-  );
+  // Najpierw najdłuższe nazwy, żeby np. Assistant Sheriff
+  // nigdy nie został rozpoznany jako samo Sheriff.
+  const candidates=[...LSSD_RANKS].sort((a,b)=>normalizeRoleName(b).length-normalizeRoleName(a).length);
 
-  const found=[];
-  for(const rawRole of roleNames){
-    const normalized=normalizeRoleName(rawRole);
-    const rank=normalizedToRank.get(normalized);
-    if(rank) found.push(rank);
+  for(const rank of candidates){
+    const target=normalizeRoleName(rank);
+    if(role===target || role.endsWith(" "+target)){
+      return rank;
+    }
   }
+
+  return null;
+}
+
+function detectLssdRank(roleNames){
+  const hierarchyIndex=new Map(LSSD_RANKS.map((rank,index)=>[rank,index]));
+  const found=roleNames.map(classifyLssdRank).filter(Boolean);
 
   if(!found.length) return null;
 
-  const hierarchyIndex=new Map(exactRanks.map((rank,index)=>[rank,index]));
   found.sort((a,b)=>(hierarchyIndex.get(a)??999)-(hierarchyIndex.get(b)??999));
   return found[0];
 }
@@ -195,10 +184,9 @@ async function getMemberPermissions(userId){
     const role=guildRoles.find(r=>r.id===id);
     return role ? role.name : null;
   }).filter(Boolean);
+  const detectedRanks=names.map(classifyLssdRank).filter(Boolean);
   const detectedRank=detectLssdRank(names);
-  const normalizedRoles=names.map(normalizeRoleName);
-  const managementRoleNames=new Set(MANAGEMENT_RANKS.map(normalizeRoleName));
-  const isManagement=normalizedRoles.some(role=>managementRoleNames.has(role));
+  const isManagement=detectedRanks.some(rank=>MANAGEMENT_RANKS.includes(rank));
 
   const avatarUrl = member.avatar
     ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
