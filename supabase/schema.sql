@@ -6,7 +6,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
-  report_type text not null check (report_type in ('DTU','SERT','IAD','DEPUTY')),
+  report_type text not null check (report_type in ('DTU','SERT','IAD','DEPUTY','WEAPON_LOSS')),
   title text not null,
   subject text,
   details text not null,
