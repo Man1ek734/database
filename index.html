@@ -48,11 +48,14 @@
           <div class="search-box">
             <input id="searchInput" type="search" placeholder="Wpisz imię i nazwisko, odznakę lub frazę..." />
           </div>
+          <button id="discordLoginBtn" class="discord-btn" type="button">Zaloguj przez Discord</button>
+          <button id="discordLogoutBtn" class="ghost-btn compact hidden" type="button">Wyloguj</button>
           <div class="user-chip">
             <span id="userInitials">LSSD</span>
             <div>
               <strong id="userName">LSSD Database</strong>
-              <small id="userEmail">Station 11 — Davis Avenue</small>
+              <small id="userEmail">Niezalogowany • tylko odczyt</small>
+              <small id="userRank" class="rank-line">Brak rangi</small>
             </div>
           </div>
         </div>
@@ -194,8 +197,29 @@
     </main>
   </div>
 
+  <div id="editModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow gold">AUTHORIZED EDIT</p>
+          <h2 id="editModalTitle">Edytuj wpis</h2>
+        </div>
+        <button id="closeEditModal" class="modal-close" type="button">×</button>
+      </div>
+      <form id="editForm">
+        <div id="editFields" class="edit-fields"></div>
+        <p id="editMessage" class="form-message"></p>
+        <div class="modal-actions">
+          <button id="cancelEditBtn" class="ghost-btn" type="button">Anuluj</button>
+          <button class="primary-btn" type="submit">Zapisz zmiany</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="app.js?v=20260924-5"></script>
+  <script src="auth.js?v=20260924-1"></script>
 </body>
 </html>
