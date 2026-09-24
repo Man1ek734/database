@@ -4,14 +4,19 @@ const supabaseClient = configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
   : null;
 
-const state={reports:[],promotions:[],demotions:[],dismissals:[],currentView:"dashboard",lastNonSearchView:"dashboard",forcedType:"ALL",query:""};
+const state={reports:[],promotions:[],demotions:[],dismissals:[],resignations:[],currentView:"dashboard",lastNonSearchView:"dashboard",forcedType:"ALL",query:""};
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeSearch=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
-const matchesQuery=(values,q)=>!q || normalizeSearch(values.join(" ")).includes(q);
+const matchesQuery=(values,q)=>{
+  if(!q) return true;
+  const hay=normalizeSearch(values.join(" "));
+  const tokens=q.split(/\s+/).filter(Boolean);
+  return tokens.every(token=>hay.includes(token));
+};
 
 async function boot(){
   await loadData();
@@ -23,14 +28,16 @@ async function loadData(){
     {data:reports,error:re},
     {data:promotions,error:pe},
     {data:demotions,error:de},
-    {data:dismissals,error:di}
+    {data:dismissals,error:di},
+    {data:resignations,error:ri}
   ] = await Promise.all([
     supabaseClient.from("reports").select("*").order("created_at",{ascending:false}),
     supabaseClient.from("promotions").select("*").order("created_at",{ascending:false}),
     supabaseClient.from("demotions").select("*").order("created_at",{ascending:false}),
-    supabaseClient.from("dismissals").select("*").order("created_at",{ascending:false})
+    supabaseClient.from("dismissals").select("*").order("created_at",{ascending:false}),
+    supabaseClient.from("resignations").select("*").order("created_at",{ascending:false})
   ]);
-  if(re||pe||de||di){
+  if(re||pe||de||di||ri){
     console.error(re||pe||de||di);
     return;
   }
@@ -38,6 +45,7 @@ async function loadData(){
   state.promotions=promotions||[];
   state.demotions=demotions||[];
   state.dismissals=dismissals||[];
+  state.resignations=resignations||[];
   renderAll();
 }
 
@@ -217,7 +225,19 @@ function renderSearchResults(){
     }
   });
 
-  summary.textContent=`Znaleziono: ${results.length} • fraza: „${state.query}”`;
+  state.resignations.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.submitted_by,p.end_date,"wypowiedzenie"],q)){
+      results.push({
+        type:"WYPOWIEDZENIE",
+        title:p.officer_name,
+        subtitle:`${p.rank||"—"} • ${p.end_date||"brak daty zakończenia"}`,
+        description:p.reason || "Brak uzasadnienia.",
+        meta:[`Odznaka: ${p.badge_number||"—"}`,`Wprowadził: ${p.submitted_by||"—"}`,fmt(p.created_at)]
+      });
+    }
+  });
+
+  summary.textContent=`Znaleziono: ${results.length} • osoba / fraza: „${state.query}”`;
 
   grid.innerHTML=results.map(r=>`
     <article class="record-card">
