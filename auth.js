@@ -1,0 +1,262 @@
+const lssdApiUrl=String((window.LSSD_CONFIG||{}).API_URL||"").replace(/\/$/,"");
+state.auth=null;
+state.canEdit=false;
+state.editing=null;
+
+function lssdAuthHeader(){
+  const token=localStorage.getItem("lssd_discord_session");
+  return token ? {Authorization:"Bearer "+token} : {};
+}
+
+function lssdSetLoggedOut(){
+  state.auth=null;
+  state.canEdit=false;
+  $("#discordLoginBtn")?.classList.remove("hidden");
+  $("#discordLogoutBtn")?.classList.add("hidden");
+  $("#userName").textContent="LSSD Database";
+  $("#userEmail").textContent="Niezalogowany • tylko odczyt";
+  $("#userRank").textContent="Brak rangi";
+  $("#userInitials").textContent="LSSD";
+}
+
+function lssdSetLoggedIn(data){
+  state.auth=data;
+  state.canEdit=Boolean(data.canEdit);
+  $("#discordLoginBtn")?.classList.add("hidden");
+  $("#discordLogoutBtn")?.classList.remove("hidden");
+  const name=data.user?.globalName || data.user?.username || "Discord User";
+  $("#userName").textContent=name;
+  $("#userEmail").textContent=data.member ? "Konto Discord połączone z LSSD" : "Nie jesteś na serwerze LSSD";
+  $("#userRank").textContent=data.rank ? "Ranga: "+data.rank+" • "+(data.canEdit?"EDYCJA":"TYLKO ODCZYT") : "Brak rangi LSSD • tylko odczyt";
+  $("#userInitials").textContent=name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase() || "DC";
+}
+
+async function lssdRestoreDiscordSession(){
+  const hash=new URLSearchParams(location.hash.replace(/^#/,""));
+  const incoming=hash.get("discord_session");
+  if(incoming){
+    localStorage.setItem("lssd_discord_session",incoming);
+    history.replaceState(null,"",location.pathname+location.search);
+  }
+
+  const token=localStorage.getItem("lssd_discord_session");
+  if(!token || !lssdApiUrl){
+    lssdSetLoggedOut();
+    return;
+  }
+
+  try{
+    const res=await fetch(lssdApiUrl+"/api/me",{headers:lssdAuthHeader()});
+    if(!res.ok) throw new Error("session");
+    lssdSetLoggedIn(await res.json());
+  }catch{
+    localStorage.removeItem("lssd_discord_session");
+    lssdSetLoggedOut();
+  }
+}
+
+function lssdEditButton(table,id){
+  const button=document.createElement("button");
+  button.type="button";
+  button.className="edit-btn";
+  button.textContent="Edytuj";
+  button.dataset.editTable=table;
+  button.dataset.editId=id;
+  return button;
+}
+
+function lssdDecorateCards(gridSelector,records,table){
+  if(!state.canEdit) return;
+  const cards=$$(gridSelector+" .record-card");
+  cards.forEach((card,i)=>{
+    const row=records[i];
+    if(!row || card.querySelector(".edit-btn")) return;
+    card.appendChild(lssdEditButton(table,row.id));
+  });
+}
+
+const lssdBaseRenderReports=renderReports;
+renderReports=function(){
+  lssdBaseRenderReports();
+  lssdDecorateCards("#reportsGrid",filteredReports(),"reports");
+};
+
+const lssdBaseRenderPromotions=renderPromotions;
+renderPromotions=function(){
+  lssdBaseRenderPromotions();
+  const q=state.query.toLowerCase().trim();
+  const rows=state.promotions.filter(p=>!q || [p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.promoted_by].join(" ").toLowerCase().includes(q));
+  lssdDecorateCards("#promotionsGrid",rows,"promotions");
+};
+
+const lssdBaseRenderDemotions=renderDemotions;
+renderDemotions=function(){
+  lssdBaseRenderDemotions();
+  const q=state.query.toLowerCase().trim();
+  const rows=state.demotions.filter(p=>!q || [p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by].join(" ").toLowerCase().includes(q));
+  lssdDecorateCards("#demotionsGrid",rows,"demotions");
+};
+
+const lssdBaseRenderDismissals=renderDismissals;
+renderDismissals=function(){
+  lssdBaseRenderDismissals();
+  const q=state.query.toLowerCase().trim();
+  const rows=state.dismissals.filter(p=>!q || [p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by].join(" ").toLowerCase().includes(q));
+  lssdDecorateCards("#dismissalsGrid",rows,"dismissals");
+};
+
+function lssdSearchRows(){
+  const q=normalizeSearch(state.query);
+  const rows=[];
+  if(!q) return rows;
+
+  state.reports.forEach(r=>{
+    if(matchesQuery([r.title,r.subject,r.details,r.badge_number,r.author_discord_name,r.report_type],q)) rows.push({table:"reports",row:r});
+  });
+  state.promotions.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.promoted_by,"awans"],q)) rows.push({table:"promotions",row:p});
+  });
+  state.demotions.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by,"degradacja"],q)) rows.push({table:"demotions",row:p});
+  });
+  state.dismissals.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by,"zwolnienie"],q)) rows.push({table:"dismissals",row:p});
+  });
+  state.resignations.forEach(p=>{
+    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.submitted_by,p.end_date,"wypowiedzenie"],q)) rows.push({table:"resignations",row:p});
+  });
+  return rows;
+}
+
+const lssdBaseRenderSearchResults=renderSearchResults;
+renderSearchResults=function(){
+  lssdBaseRenderSearchResults();
+  if(!state.canEdit) return;
+  const rows=lssdSearchRows();
+  const cards=$$("#searchResultsGrid .record-card");
+  cards.forEach((card,i)=>{
+    const item=rows[i];
+    if(!item || card.querySelector(".edit-btn")) return;
+    card.appendChild(lssdEditButton(item.table,item.row.id));
+  });
+};
+
+const LSSD_EDIT_FIELDS={
+  reports:[
+    ["report_type","Typ raportu","select",["DTU","SERT","IAD","DEPUTY"]],
+    ["title","Tytuł","text"],["subject","Dotyczy","text"],["badge_number","Numer odznaki","text"],["details","Treść raportu","textarea"]
+  ],
+  promotions:[
+    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["old_rank","Poprzednia ranga","text"],["new_rank","Nowa ranga","text"],["reason","Uzasadnienie","textarea"]
+  ],
+  demotions:[
+    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["old_rank","Poprzednia ranga","text"],["new_rank","Nowa ranga","text"],["reason","Uzasadnienie","textarea"]
+  ],
+  dismissals:[
+    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["rank","Ranga","text"],["reason","Uzasadnienie","textarea"]
+  ],
+  resignations:[
+    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["rank","Ranga","text"],["end_date","Ostatni dzień służby","text"],["reason","Powód / treść wypowiedzenia","textarea"]
+  ]
+};
+
+function lssdGetRow(table,id){
+  return (state[table]||[]).find(x=>x.id===id);
+}
+
+function lssdOpenEdit(table,id){
+  if(!state.canEdit) return;
+  const row=lssdGetRow(table,id);
+  const defs=LSSD_EDIT_FIELDS[table];
+  if(!row || !defs) return;
+
+  state.editing={table,id};
+  $("#editModalTitle").textContent="Edytuj wpis";
+  $("#editMessage").textContent="";
+  $("#editFields").innerHTML="";
+
+  for(const def of defs){
+    const [key,label,type,options]=def;
+    const wrapper=document.createElement("label");
+    wrapper.className="edit-label";
+    wrapper.append(document.createTextNode(label));
+    let input;
+
+    if(type==="textarea"){
+      input=document.createElement("textarea");
+      input.rows=5;
+      input.value=String(row[key]??"");
+    }else if(type==="select"){
+      input=document.createElement("select");
+      for(const option of options){
+        const el=document.createElement("option");
+        el.value=option;
+        el.textContent=option;
+        if(option===String(row[key]??"")) el.selected=true;
+        input.appendChild(el);
+      }
+    }else{
+      input=document.createElement("input");
+      input.value=String(row[key]??"");
+    }
+
+    input.dataset.editField=key;
+    wrapper.appendChild(input);
+    $("#editFields").appendChild(wrapper);
+  }
+
+  $("#editModal").classList.remove("hidden");
+}
+
+function lssdCloseEdit(){
+  state.editing=null;
+  $("#editModal").classList.add("hidden");
+  $("#editFields").innerHTML="";
+  $("#editMessage").textContent="";
+}
+
+async function lssdSaveEdit(){
+  if(!state.editing || !state.canEdit) return;
+  const table=state.editing.table;
+  const id=state.editing.id;
+  const changes={};
+  $$("#editFields [data-edit-field]").forEach(el=>changes[el.dataset.editField]=el.value);
+
+  $("#editMessage").textContent="Zapisywanie...";
+  const res=await fetch(lssdApiUrl+"/api/update",{
+    method:"POST",
+    headers:{"Content-Type":"application/json",...lssdAuthHeader()},
+    body:JSON.stringify({table,id,changes})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){
+    $("#editMessage").textContent=data.error || "Nie udało się zapisać zmian.";
+    return;
+  }
+
+  const list=state[table]||[];
+  const i=list.findIndex(x=>x.id===id);
+  if(i>=0) list[i]=data.row;
+  renderAll();
+  lssdCloseEdit();
+}
+
+$("#discordLoginBtn")?.addEventListener("click",()=>{
+  if(lssdApiUrl) location.href=lssdApiUrl+"/auth/discord";
+});
+$("#discordLogoutBtn")?.addEventListener("click",()=>{
+  localStorage.removeItem("lssd_discord_session");
+  lssdSetLoggedOut();
+  renderAll();
+});
+$("#closeEditModal")?.addEventListener("click",lssdCloseEdit);
+$("#cancelEditBtn")?.addEventListener("click",lssdCloseEdit);
+$("#editModal")?.addEventListener("click",e=>{if(e.target.id==="editModal")lssdCloseEdit()});
+$("#editForm")?.addEventListener("submit",async e=>{e.preventDefault();await lssdSaveEdit()});
+
+document.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-edit-table]");
+  if(btn) lssdOpenEdit(btn.dataset.editTable,btn.dataset.editId);
+});
+
+lssdRestoreDiscordSession().then(()=>renderAll());
