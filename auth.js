@@ -41,7 +41,7 @@ function lssdSetLoggedIn(data){
   const pseudonym=data.nickname || data.user?.globalName || data.user?.username || "Discord User";
   $("#userName").textContent=pseudonym;
   $("#userEmail").textContent=data.member ? "Los Santos Sheriff's Department" : "Nie jesteś na serwerze LSSD";
-  $("#userRank").textContent=data.rank ? data.rank : "Brak rangi LSSD";
+  $("#userRank").textContent=data.rank ? data.rank : "Brak rozpoznanej rangi";
 
   const avatar=$("#userAvatar");
   if(avatar){
