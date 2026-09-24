@@ -177,3 +177,8 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
   align-items:center;
   gap:10px;
 }
+
+.record-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.record-actions .edit-btn{float:none;margin:0}
+.delete-btn{border:1px solid rgba(213,91,102,.55);background:rgba(213,91,102,.08);color:#ef8a94;border-radius:8px;padding:7px 10px;font-size:10px;font-weight:900;letter-spacing:.06em}
+.delete-btn:hover{background:rgba(213,91,102,.16)}
