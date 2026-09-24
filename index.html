@@ -11,31 +11,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="loginView" class="login-shell">
-    <div class="login-card">
-      <div class="badge-mark">LSSD</div>
-      <p class="eyebrow">LOS SANTOS SHERIFF'S DEPARTMENT</p>
-      <h1>Records Database</h1>
-      <p class="muted">Autoryzowany dostęp do raportów i rejestru kadrowego.</p>
-
-      <form id="loginForm" class="login-form">
-        <label>
-          E-mail służbowy
-          <input id="loginEmail" type="email" placeholder="deputy@lssd.local" autocomplete="username" required>
-        </label>
-        <label>
-          Hasło
-          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
-        </label>
-        <button class="primary-btn" type="submit">ZALOGUJ DO SYSTEMU</button>
-      </form>
-
-      <p id="loginMessage" class="form-message"></p>
-      <div class="security-note">AUTHORIZED PERSONNEL ONLY • STATION 11 — DAVIS AVENUE</div>
-    </div>
-  </div>
-
-  <div id="appView" class="app-shell hidden">
+  <div id="appView" class="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-seal">LSSD</div>
@@ -59,7 +35,6 @@
 
       <div class="sidebar-bottom">
         <div class="online-dot"><i></i> DATABASE ONLINE</div>
-        <button id="logoutBtn" class="ghost-btn">Wyloguj</button>
       </div>
     </aside>
 
@@ -74,10 +49,10 @@
             <input id="searchInput" type="search" placeholder="Szukaj raportu, osoby, odznaki..." />
           </div>
           <div class="user-chip">
-            <span id="userInitials">SV</span>
+            <span id="userInitials">LSSD</span>
             <div>
-              <strong id="userName">Authorized User</strong>
-              <small id="userEmail">—</small>
+              <strong id="userName">LSSD Database</strong>
+              <small id="userEmail">Station 11 — Davis Avenue</small>
             </div>
           </div>
         </div>
@@ -210,6 +185,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260924-2"></script>
+  <script src="app.js?v=20260924-3"></script>
 </body>
 </html>
