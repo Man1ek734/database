@@ -23,9 +23,13 @@ function lssdSetLoggedOut(){
   $("#discordLoginBtn")?.classList.remove("hidden");
   $("#discordLogoutBtn")?.classList.add("hidden");
   $("#userName").textContent="LSSD Database";
-  $("#userEmail").textContent="Niezalogowany • tylko odczyt";
-  $("#userRank").textContent="Brak rangi";
-  $("#userInitials").textContent="LSSD";
+  $("#userEmail").textContent="Niezalogowany";
+  $("#userRank").textContent="Tylko odczyt";
+  const avatar=$("#userAvatar");
+  if(avatar){
+    avatar.src="assets/lssd-logo.webp";
+    avatar.alt="LSSD";
+  }
 }
 
 function lssdSetLoggedIn(data){
@@ -33,11 +37,17 @@ function lssdSetLoggedIn(data){
   state.canEdit=Boolean(data.canEdit);
   $("#discordLoginBtn")?.classList.add("hidden");
   $("#discordLogoutBtn")?.classList.remove("hidden");
-  const name=data.user?.globalName || data.user?.username || "Discord User";
-  $("#userName").textContent=name;
-  $("#userEmail").textContent=data.member ? "Konto Discord połączone z LSSD" : "Nie jesteś na serwerze LSSD";
-  $("#userRank").textContent=data.rank ? "Ranga: "+data.rank+" • "+(data.canEdit?"EDYCJA":"TYLKO ODCZYT") : "Brak rangi LSSD • tylko odczyt";
-  $("#userInitials").textContent=name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase() || "DC";
+
+  const pseudonym=data.nickname || data.user?.globalName || data.user?.username || "Discord User";
+  $("#userName").textContent=pseudonym;
+  $("#userEmail").textContent=data.member ? "Los Santos Sheriff's Department" : "Nie jesteś na serwerze LSSD";
+  $("#userRank").textContent=data.rank ? data.rank : "Brak rangi LSSD";
+
+  const avatar=$("#userAvatar");
+  if(avatar){
+    avatar.src=data.memberAvatarUrl || data.user?.avatarUrl || "assets/lssd-logo.webp";
+    avatar.alt=pseudonym;
+  }
 }
 
 async function lssdRestoreDiscordSession(){
