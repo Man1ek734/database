@@ -18,6 +18,7 @@ const EDIT_FIELDS={
 
 const SESSION_TTL_SECONDS=7*24*60*60;
 const roleCache={expires:0,roles:[]};
+const loginTokens=new Map();
 
 function settings(){
   const webAppUrl=process.env.WEB_APP_URL || "https://man1ek734.github.io/database/";
@@ -35,12 +36,27 @@ function createSession(user){
   const payload=Buffer.from(JSON.stringify({
     sub:user.id,
     username:user.username,
-    globalName:user.global_name || user.username,
+    globalName:user.global_name || user.globalName || user.username,
     avatar:user.avatar || null,
     iat:now,
     exp:now+SESSION_TTL_SECONDS
   })).toString("base64url");
   return payload+"."+signValue(payload);
+}
+
+export function createDiscordLoginLink(user){
+  const {webAppUrl}=settings();
+  const token=randomBytes(32).toString("base64url");
+  loginTokens.set(token,{
+    user:{
+      id:user.id,
+      username:user.username,
+      global_name:user.globalName || user.username,
+      avatar:user.avatar || null
+    },
+    expires:Date.now()+10*60*1000
+  });
+  return webAppUrl+"#discord_login="+encodeURIComponent(token);
 }
 
 function verifySession(token){
@@ -212,6 +228,21 @@ export function startWebApi({writeRecord}){
         return;
       }
 
+      if(url.pathname==="/api/claim-login" && req.method==="POST"){
+        const body=await readJson(req);
+        const token=String(body.token || "");
+        const entry=loginTokens.get(token);
+        if(!entry || entry.expires<Date.now()){
+          loginTokens.delete(token);
+          sendJson(res,401,{error:"Link logowania wygasł albo został już użyty."},origin,webOrigin);
+          return;
+        }
+        loginTokens.delete(token);
+        const session=createSession(entry.user);
+        sendJson(res,200,{session},origin,webOrigin);
+        return;
+      }
+
       if(url.pathname==="/api/me" && req.method==="GET"){
         const session=verifySession(getBearer(req));
         if(!session){
@@ -269,7 +300,7 @@ export function startWebApi({writeRecord}){
     }
   });
 
-  server.listen(Number(process.env.PORT || 3000),"0.0.0.0",()=>{
-    console.log("LSSD web API listening on port "+(process.env.PORT || 3000));
+  server.listen(3000,"0.0.0.0",()=>{
+    console.log("LSSD web API listening on port 3000");
   });
 }
