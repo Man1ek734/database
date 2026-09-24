@@ -15,6 +15,8 @@ System bazy danych dla **Los Santos Sheriff's Department**.
   - Deputy
 - wyszukiwarka
 - rejestr awansów
+- rejestr degradacji
+- rejestr zwolnień
 - automatyczne statystyki
 - responsywny wygląd na telefon i komputer
 
@@ -31,13 +33,15 @@ Po użyciu pojawia się menu:
 - Raport IAD
 - Raport Deputy
 - Awans
+- Degradacja
+- Zwolnienie
 
 Raport zapisuje się w Supabase i pojawia na stronie.
 
-Awans:
-1. zapisuje się w Supabase,
-2. pojawia się na stronie w zakładce **Awanse**,
-3. bot publikuje embed na wybranym kanale Discord.
+Zmiany kadrowe:
+1. awans, degradacja albo zwolnienie zapisuje się w Supabase,
+2. pojawia się w odpowiedniej zakładce na stronie,
+3. bot publikuje embed na odpowiednim kanale Discord.
 
 ## Struktura repo
 
@@ -101,6 +105,8 @@ Najważniejsze:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PROMOTION_CHANNEL_ID`
+- `DEMOTION_CHANNEL_ID`
+- `DISMISSAL_CHANNEL_ID`
 - opcjonalnie `DATABASE_LOG_CHANNEL_ID`
 
 Następnie:
