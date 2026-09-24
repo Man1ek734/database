@@ -3,6 +3,15 @@ state.auth=null;
 state.canEdit=false;
 state.editing=null;
 
+function lssdShowLoginToast(message){
+  const toast=$("#loginToast");
+  if(!toast) return;
+  toast.textContent=message;
+  toast.classList.remove("hidden");
+  clearTimeout(window.__lssdLoginToastTimer);
+  window.__lssdLoginToastTimer=setTimeout(()=>toast.classList.add("hidden"),9000);
+}
+
 function lssdAuthHeader(){
   const token=localStorage.getItem("lssd_discord_session");
   return token ? {Authorization:"Bearer "+token} : {};
@@ -33,8 +42,25 @@ function lssdSetLoggedIn(data){
 
 async function lssdRestoreDiscordSession(){
   const hash=new URLSearchParams(location.hash.replace(/^#/,""));
+  const loginToken=hash.get("discord_login");
   const incoming=hash.get("discord_session");
-  if(incoming){
+
+  if(loginToken && lssdApiUrl){
+    try{
+      const claim=await fetch(lssdApiUrl+"/api/claim-login",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({token:loginToken})
+      });
+      const data=await claim.json().catch(()=>({}));
+      if(!claim.ok || !data.session) throw new Error(data.error || "login");
+      localStorage.setItem("lssd_discord_session",data.session);
+    }catch(error){
+      console.error("Discord login failed",error);
+      lssdShowLoginToast("Link logowania wygasł albo został już użyty. Wpisz ponownie /login na Discordzie.");
+    }
+    history.replaceState(null,"",location.pathname+location.search);
+  }else if(incoming){
     localStorage.setItem("lssd_discord_session",incoming);
     history.replaceState(null,"",location.pathname+location.search);
   }
@@ -242,7 +268,9 @@ async function lssdSaveEdit(){
 }
 
 $("#discordLoginBtn")?.addEventListener("click",()=>{
-  if(lssdApiUrl) location.href=lssdApiUrl+"/auth/discord";
+  const discordUrl=String((window.LSSD_CONFIG||{}).DISCORD_LOGIN_URL||"");
+  if(discordUrl) window.open(discordUrl,"_blank","noopener,noreferrer");
+  lssdShowLoginToast("Na Discordzie wpisz /login. Bot wyśle Ci prywatny, jednorazowy link do zalogowania.");
 });
 $("#discordLogoutBtn")?.addEventListener("click",()=>{
   localStorage.removeItem("lssd_discord_session");
