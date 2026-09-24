@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260924-3" />
+  <link rel="stylesheet" href="style.css?v=20260924-4" />
 </head>
 <body>
   <div id="appView" class="app-shell">
@@ -52,7 +52,11 @@
           <div class="search-box">
             <input id="searchInput" type="search" placeholder="Wpisz imię i nazwisko, odznakę lub frazę..." />
           </div>
-          <button id="discordLoginBtn" class="discord-btn" type="button">Zaloguj przez Discord</button>
+          <button id="discordLoginBtn" class="discord-btn discord-icon-btn" type="button" aria-label="Zaloguj przez Discord" title="Zaloguj przez Discord">
+    <svg class="discord-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M20.317 4.3698A19.7913 19.7913 0 0 0 16.558 3.196a13.6605 13.6605 0 0 0-.595 1.205 18.27 18.27 0 0 0-7.927 0 12.936 12.936 0 0 0-.602-1.205A19.736 19.736 0 0 0 3.677 4.372C1.299 7.892.656 11.326.978 14.711a19.9 19.9 0 0 0 4.6 2.925 14.62 14.62 0 0 0 1.12-1.84 12.98 12.98 0 0 1-1.765-.845c.148-.108.293-.22.433-.335 3.402 1.582 7.099 1.582 10.46 0 .142.116.286.228.433.335-.56.33-1.151.613-1.765.845.33.642.705 1.258 1.12 1.84a19.85 19.85 0 0 0 4.6-2.925c.378-3.925-.646-7.327-2.997-10.341ZM8.02 12.775c-1.02 0-1.86-.944-1.86-2.105 0-1.161.82-2.106 1.86-2.106 1.05 0 1.88.954 1.86 2.106 0 1.161-.82 2.105-1.86 2.105Zm7.96 0c-1.02 0-1.86-.944-1.86-2.105 0-1.161.82-2.106 1.86-2.106 1.05 0 1.88.954 1.86 2.106 0 1.161-.81 2.105-1.86 2.105Z"/>
+    </svg>
+  </button>
           <button id="discordLogoutBtn" class="ghost-btn compact hidden" type="button">Wyloguj</button>
           <div class="user-chip">
             <img id="userAvatar" class="user-avatar" src="assets/lssd-logo.webp" alt="LSSD" />
