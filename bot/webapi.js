@@ -182,6 +182,14 @@ async function getMemberPermissions(userId){
     return role ? role.name : null;
   }).filter(Boolean);
   const detectedRank=detectLssdRank(names);
+  const normalizedRoles=names.map(normalizeRoleName);
+  const isHighCommand=normalizedRoles.some(role=>
+    role==="high command" ||
+    role==="high comend" ||
+    role.includes("high command") ||
+    role.includes("high comend") ||
+    role==="hc"
+  );
 
   const avatarUrl = member.avatar
     ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
@@ -191,7 +199,9 @@ async function getMemberPermissions(userId){
     member:true,
     roles:names,
     rank:detectedRank,
-    canEdit:Boolean(detectedRank),
+    isHighCommand,
+    canEdit:isHighCommand,
+    canDelete:isHighCommand,
     nickname:cleanServerNickname(member.nick || member.user?.global_name || member.user?.username || ""),
     memberAvatarUrl:avatarUrl
   };
@@ -339,7 +349,7 @@ export function startWebApi({writeRecord}){
         }
         const perms=await getMemberPermissions(session.sub);
         if(!perms.canEdit){
-          sendJson(res,403,{error:"Brak rangi LSSD uprawniajacej do edycji."},origin,webOrigin);
+          sendJson(res,403,{error:"Tylko High Command może edytować wpisy."},origin,webOrigin);
           return;
         }
         const body=await readJson(req);
@@ -363,6 +373,32 @@ export function startWebApi({writeRecord}){
         }
         const row=await writeRecord("update",table,clean,id);
         sendJson(res,200,{ok:true,row,rank:perms.rank},origin,webOrigin);
+        return;
+      }
+
+      if(url.pathname==="/api/delete" && req.method==="POST"){
+        const session=verifySession(getBearer(req));
+        if(!session){
+          sendJson(res,401,{error:"Musisz zalogowac sie przez Discord."},origin,webOrigin);
+          return;
+        }
+
+        const perms=await getMemberPermissions(session.sub);
+        if(!perms.canDelete){
+          sendJson(res,403,{error:"Tylko High Command może usuwać wpisy."},origin,webOrigin);
+          return;
+        }
+
+        const body=await readJson(req);
+        const table=body.table;
+        const id=body.id;
+        if(!EDIT_FIELDS[table] || !id){
+          sendJson(res,400,{error:"Nieprawidlowe dane."},origin,webOrigin);
+          return;
+        }
+
+        await writeRecord("delete",table,{},id);
+        sendJson(res,200,{ok:true},origin,webOrigin);
         return;
       }
 
