@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LSSD Records Database</title>
+  <meta name="description" content="Los Santos Sheriff's Department — Records Database" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="loginView" class="login-shell">
+    <div class="login-card">
+      <div class="badge-mark">LSSD</div>
+      <p class="eyebrow">LOS SANTOS SHERIFF'S DEPARTMENT</p>
+      <h1>Records Database</h1>
+      <p class="muted">Autoryzowany dostęp do raportów i rejestru kadrowego.</p>
+
+      <form id="loginForm" class="login-form">
+        <label>
+          E-mail służbowy
+          <input id="loginEmail" type="email" placeholder="deputy@lssd.local" autocomplete="username" required>
+        </label>
+        <label>
+          Hasło
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
+        </label>
+        <button class="primary-btn" type="submit">ZALOGUJ DO SYSTEMU</button>
+      </form>
+
+      <p id="loginMessage" class="form-message"></p>
+      <div class="security-note">AUTHORIZED PERSONNEL ONLY • STATION 11 — DAVIS AVENUE</div>
+    </div>
+  </div>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-seal">LSSD</div>
+        <div>
+          <strong>RECORDS</strong>
+          <span>DATABASE</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard"><span>01</span> Dashboard</button>
+        <button class="nav-item" data-view="reports-all"><span>02</span> Wszystkie raporty</button>
+        <button class="nav-item" data-view="reports-dtu"><span>03</span> Raporty DTU</button>
+        <button class="nav-item" data-view="reports-sert"><span>04</span> Raporty SERT</button>
+        <button class="nav-item" data-view="reports-iad"><span>05</span> Raporty IAD</button>
+        <button class="nav-item" data-view="reports-deputy"><span>06</span> Raporty Deputy</button>
+        <button class="nav-item" data-view="promotions"><span>07</span> Awanse</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="online-dot"><i></i> DATABASE ONLINE</div>
+        <button id="logoutBtn" class="ghost-btn">Wyloguj</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOS SANTOS SHERIFF'S DEPARTMENT</p>
+          <h2 id="pageTitle">Dashboard</h2>
+        </div>
+        <div class="top-actions">
+          <div class="search-box">
+            <input id="searchInput" type="search" placeholder="Szukaj raportu, osoby, odznaki..." />
+          </div>
+          <div class="user-chip">
+            <span id="userInitials">SV</span>
+            <div>
+              <strong id="userName">Authorized User</strong>
+              <small id="userEmail">—</small>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active-view">
+        <div class="hero">
+          <div>
+            <p class="eyebrow gold">STATION 11 — DAVIS AVENUE</p>
+            <h1>Records & Command Center</h1>
+            <p>Centralna baza raportów jednostek specjalistycznych, patroli i zmian kadrowych LSSD.</p>
+          </div>
+          <div class="hero-stamp">
+            <strong>LSSD</strong>
+            <span>OFFICIAL USE</span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span>WSZYSTKIE RAPORTY</span>
+            <strong id="statReports">0</strong>
+            <small>łącznie w bazie</small>
+          </article>
+          <article class="stat-card">
+            <span>DTU + SERT</span>
+            <strong id="statSpecial">0</strong>
+            <small>raporty specjalistyczne</small>
+          </article>
+          <article class="stat-card">
+            <span>IAD</span>
+            <strong id="statIad">0</strong>
+            <small>raporty wewnętrzne</small>
+          </article>
+          <article class="stat-card">
+            <span>AWANSE</span>
+            <strong id="statPromotions">0</strong>
+            <small>zarejestrowane zmiany</small>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">OSTATNIE WPISY</p>
+                <h3>Najnowsze raporty</h3>
+              </div>
+              <button class="text-btn" data-jump="reports-all">Pokaż wszystkie →</button>
+            </div>
+            <div id="recentReports" class="compact-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">KADRY</p>
+                <h3>Ostatnie awanse</h3>
+              </div>
+              <button class="text-btn" data-jump="promotions">Rejestr →</button>
+            </div>
+            <div id="recentPromotions" class="compact-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="reportsView" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow gold" id="reportsEyebrow">REPORTS</p>
+            <h1 id="reportsHeading">Wszystkie raporty</h1>
+          </div>
+          <div class="filter-row">
+            <select id="reportTypeFilter">
+              <option value="ALL">Wszystkie jednostki</option>
+              <option value="DTU">DTU</option>
+              <option value="SERT">SERT</option>
+              <option value="IAD">IAD</option>
+              <option value="DEPUTY">DEPUTY</option>
+            </select>
+          </div>
+        </div>
+        <div id="reportsGrid" class="records-grid"></div>
+      </section>
+
+      <section id="promotionsView" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow gold">PERSONNEL</p>
+            <h1>Rejestr awansów</h1>
+            <p>Zmiany stopni zapisane przez system Discord /database.</p>
+          </div>
+        </div>
+        <div id="promotionsGrid" class="records-grid promotions-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
