@@ -196,7 +196,9 @@ async function getMemberPermissions(userId){
     return role ? role.name : null;
   }).filter(Boolean);
   const detectedRank=detectLssdRank(names);
-  const isManagement=Boolean(detectedRank && MANAGEMENT_RANKS.includes(detectedRank));
+  const normalizedRoles=names.map(normalizeRoleName);
+  const managementRoleNames=new Set(MANAGEMENT_RANKS.map(normalizeRoleName));
+  const isManagement=normalizedRoles.some(role=>managementRoleNames.has(role));
 
   const avatarUrl = member.avatar
     ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
