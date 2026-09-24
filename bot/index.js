@@ -90,6 +90,84 @@ function promotionModal(){
   return modal;
 }
 
+function demotionModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("demotion_modal")
+    .setTitle("Rejestracja degradacji");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
+    new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
+    new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień")),
+    new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień")),
+    new ActionRowBuilder().addComponents(input("reason","Powód / uzasadnienie",TextInputStyle.Paragraph,true,"Krótko opisz podstawę degradacji"))
+  );
+  return modal;
+}
+
+function dismissalModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("dismissal_modal")
+    .setTitle("Rejestracja zwolnienia");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
+    new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
+    new ActionRowBuilder().addComponents(input("rank","Stopień w momencie zwolnienia")),
+    new ActionRowBuilder().addComponents(input("reason","Powód / uzasadnienie",TextInputStyle.Paragraph,true,"Krótko opisz podstawę zwolnienia"))
+  );
+  return modal;
+}
+
+async function publishPersonnelChange(interaction,row,type){
+  const channelId =
+    type==="PROMOTION" ? process.env.PROMOTION_CHANNEL_ID :
+    type==="DEMOTION" ? (process.env.DEMOTION_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
+    (process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID);
+
+  if(!channelId) return;
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const title =
+    type==="PROMOTION" ? "LSSD • PROMOTION NOTICE" :
+    type==="DEMOTION" ? "LSSD • DEMOTION NOTICE" :
+    "LSSD • DISMISSAL NOTICE";
+
+  const description =
+    type==="PROMOTION" ? `**${row.officer_name}** otrzymuje awans.` :
+    type==="DEMOTION" ? `**${row.officer_name}** otrzymuje degradację.` :
+    `**${row.officer_name}** kończy służbę w LSSD.`;
+
+  const fields=[
+    {name:"Numer odznaki",value:row.badge_number || "—",inline:true}
+  ];
+
+  if(type==="DISMISSAL"){
+    fields.push({name:"Stopień",value:row.rank || "—",inline:true});
+  }else{
+    fields.push(
+      {name:"Poprzedni stopień",value:row.old_rank,inline:true},
+      {name:"Nowy stopień",value:row.new_rank,inline:true}
+    );
+  }
+
+  fields.push(
+    {name:"Uzasadnienie",value:row.reason || "—"},
+    {name:"Zatwierdził",value:interaction.user.toString()}
+  );
+
+  const embed=new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(description)
+    .addFields(fields)
+    .setColor(type==="PROMOTION" ? 0xC9AA51 : type==="DEMOTION" ? 0xD98C3F : 0xB84A55)
+    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setTimestamp();
+
+  await channel.send({embeds:[embed]});
+}
+
 async function publishPromotion(interaction,row){
   const channelId=process.env.PROMOTION_CHANNEL_ID;
   if(!channelId) return;
@@ -156,7 +234,9 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport SERT",value:"SERT",description:"Special Emergency Response Team"},
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport Deputy",value:"DEPUTY",description:"Raport funkcjonariusza patrolowego"},
-          {label:"Awans",value:"PROMOTION",description:"Rejestracja zmiany stopnia"}
+          {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
+          {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
+          {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"}
         );
 
       await interaction.reply({
@@ -170,6 +250,8 @@ client.on("interactionCreate",async interaction=>{
     if(interaction.isStringSelectMenu() && interaction.customId==="database_type"){
       const type=interaction.values[0];
       if(type==="PROMOTION") await interaction.showModal(promotionModal());
+      else if(type==="DEMOTION") await interaction.showModal(demotionModal());
+      else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
       else await interaction.showModal(reportModal(type));
       return;
     }
@@ -206,8 +288,43 @@ client.on("interactionCreate",async interaction=>{
         promoted_by_discord_id:interaction.user.id
       });
 
-      await publishPromotion(interaction,row);
-      await interaction.editReply(`✅ Awans został zapisany w bazie i opublikowany na kanale awansów. ID: \`${row.id}\``);
+      await publishPersonnelChange(interaction,row,"PROMOTION");
+      await interaction.editReply(`✅ Awans został zapisany w bazie i opublikowany na Discordzie. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="demotion_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const row=await supabaseInsert("demotions",{
+        officer_name:interaction.fields.getTextInputValue("officer"),
+        badge_number:interaction.fields.getTextInputValue("badge"),
+        old_rank:interaction.fields.getTextInputValue("old_rank"),
+        new_rank:interaction.fields.getTextInputValue("new_rank"),
+        reason:interaction.fields.getTextInputValue("reason"),
+        demoted_by:interaction.user.globalName || interaction.user.username,
+        demoted_by_discord_id:interaction.user.id
+      });
+
+      await publishPersonnelChange(interaction,row,"DEMOTION");
+      await interaction.editReply(`✅ Degradacja została zapisana w bazie i opublikowana na Discordzie. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="dismissal_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const row=await supabaseInsert("dismissals",{
+        officer_name:interaction.fields.getTextInputValue("officer"),
+        badge_number:interaction.fields.getTextInputValue("badge"),
+        rank:interaction.fields.getTextInputValue("rank"),
+        reason:interaction.fields.getTextInputValue("reason"),
+        dismissed_by:interaction.user.globalName || interaction.user.username,
+        dismissed_by_discord_id:interaction.user.id
+      });
+
+      await publishPersonnelChange(interaction,row,"DISMISSAL");
+      await interaction.editReply(`✅ Zwolnienie zostało zapisane w bazie i opublikowane na Discordzie. ID: \`${row.id}\``);
     }
   }catch(error){
     console.error(error);
