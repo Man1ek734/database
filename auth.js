@@ -45,8 +45,12 @@ function lssdSetLoggedIn(data){
 
   const avatar=$("#userAvatar");
   if(avatar){
-    avatar.src=data.memberAvatarUrl || data.user?.avatarUrl || "assets/lssd-logo.webp";
+    avatar.src=data.memberAvatarUrl || data.user?.avatarUrl || "https://cdn.discordapp.com/embed/avatars/0.png";
     avatar.alt=pseudonym;
+    avatar.onerror=()=>{
+      avatar.onerror=null;
+      avatar.src="https://cdn.discordapp.com/embed/avatars/0.png";
+    };
   }
 }
 
