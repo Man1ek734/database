@@ -122,35 +122,70 @@ function normalizeRoleName(value=""){
 }
 
 function detectLssdRank(roleNames){
-  const normalized=roleNames.map(normalizeRoleName);
+  const aliasMap=[
+    ["Sheriff",["sheriff"]],
+    ["Undersheriff",["undersheriff","under sheriff"]],
+    ["Assistant Sheriff",["assistant sheriff","asst sheriff"]],
+    ["Commander",["commander","cmdr"]],
+    ["Captain II",["captain ii","captain 2","cpt ii","cpt 2"]],
+    ["Captain I",["captain i","captain 1","cpt i","cpt 1"]],
+    ["Lieutenant II",["lieutenant ii","lieutenant 2","lt ii","lt 2"]],
+    ["Lieutenant I",["lieutenant i","lieutenant 1","lt i","lt 1"]],
+    ["Sergeant II",["sergeant ii","sergeant 2","sgt ii","sgt 2"]],
+    ["Sergeant I",["sergeant i","sergeant 1","sgt i","sgt 1"]],
+    ["Corporal II",["corporal ii","corporal 2","cpl ii","cpl 2"]],
+    ["Corporal I",["corporal i","corporal 1","cpl i","cpl 1"]],
+    ["Deputy Sheriff III",["deputy sheriff iii","deputy sheriff 3","ds iii","ds 3","deputy iii","deputy 3"]],
+    ["Deputy Sheriff II",["deputy sheriff ii","deputy sheriff 2","ds ii","ds 2","deputy ii","deputy 2"]],
+    ["Deputy Sheriff I",["deputy sheriff i","deputy sheriff 1","ds i","ds 1","deputy i","deputy 1"]],
+    ["Deputy Sheriff Trainee",[
+      "deputy sheriff trainee",
+      "deputy sheriff training",
+      "training deputy",
+      "trainee deputy",
+      "deputy trainee",
+      "dst"
+    ]]
+  ];
 
-  for(const rank of LSSD_RANKS){
-    const target=normalizeRoleName(rank);
+  const stripDecorations=value=>{
+    let role=normalizeRoleName(value);
 
-    if(normalized.some(role=>{
-      if(role===target) return true;
-      if(role.includes(target)) return true;
+    // Discord roles often have harmless category/prefix text.
+    const prefixes=["lssd","rank","ranga","stopien","stopień","role"];
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const prefix of prefixes){
+        const p=normalizeRoleName(prefix);
+        if(role.startsWith(p+" ")){
+          role=role.slice(p.length+1).trim();
+          changed=true;
+        }
+      }
+    }
 
-      // Common abbreviated Discord-role forms.
-      const t=target
-        .replace("deputy sheriff trainee","dst")
-        .replace("deputy sheriff iii","ds iii")
-        .replace("deputy sheriff ii","ds ii")
-        .replace("deputy sheriff i","ds i")
-        .replace("sergeant ii","sgt ii")
-        .replace("sergeant i","sgt i")
-        .replace("lieutenant ii","lt ii")
-        .replace("lieutenant i","lt i")
-        .replace("captain ii","cpt ii")
-        .replace("captain i","cpt i")
-        .replace("corporal ii","cpl ii")
-        .replace("corporal i","cpl i");
+    return role;
+  };
 
-      return role.includes(t);
-    })) return rank;
+  const hierarchyIndex=new Map(LSSD_RANKS.map((rank,index)=>[rank,index]));
+  const found=[];
+
+  for(const rawRole of roleNames){
+    const role=stripDecorations(rawRole);
+
+    for(const [rank,aliases] of aliasMap){
+      if(aliases.some(alias=>role===normalizeRoleName(alias))){
+        found.push(rank);
+        break;
+      }
+    }
   }
 
-  return null;
+  if(!found.length) return null;
+
+  found.sort((a,b)=>(hierarchyIndex.get(a)??999)-(hierarchyIndex.get(b)??999));
+  return found[0];
 }
 
 function cleanServerNickname(value=""){
