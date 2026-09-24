@@ -1,6 +1,7 @@
 const lssdApiUrl=String((window.LSSD_CONFIG||{}).API_URL||"").replace(/\/$/,"");
 state.auth=null;
 state.canEdit=false;
+state.canDelete=false;
 state.editing=null;
 
 function lssdShowLoginToast(message){
@@ -20,6 +21,7 @@ function lssdAuthHeader(){
 function lssdSetLoggedOut(){
   state.auth=null;
   state.canEdit=false;
+  state.canDelete=false;
   $("#discordLoginBtn")?.classList.remove("hidden");
   $("#discordLogoutBtn")?.classList.add("hidden");
   $("#userName").textContent="LSSD Database";
@@ -35,6 +37,7 @@ function lssdSetLoggedOut(){
 function lssdSetLoggedIn(data){
   state.auth=data;
   state.canEdit=Boolean(data.canEdit);
+  state.canDelete=Boolean(data.canDelete);
   $("#discordLoginBtn")?.classList.add("hidden");
   $("#discordLogoutBtn")?.classList.remove("hidden");
 
@@ -95,23 +98,41 @@ async function lssdRestoreDiscordSession(){
   }
 }
 
-function lssdEditButton(table,id){
-  const button=document.createElement("button");
-  button.type="button";
-  button.className="edit-btn";
-  button.textContent="Edytuj";
-  button.dataset.editTable=table;
-  button.dataset.editId=id;
-  return button;
+function lssdActionButtons(table,id){
+  const wrap=document.createElement("div");
+  wrap.className="record-actions";
+
+  if(state.canEdit){
+    const edit=document.createElement("button");
+    edit.type="button";
+    edit.className="edit-btn";
+    edit.textContent="Edytuj";
+    edit.dataset.editTable=table;
+    edit.dataset.editId=id;
+    wrap.appendChild(edit);
+  }
+
+  if(state.canDelete){
+    const del=document.createElement("button");
+    del.type="button";
+    del.className="delete-btn";
+    del.textContent="Usuń";
+    del.dataset.deleteTable=table;
+    del.dataset.deleteId=id;
+    wrap.appendChild(del);
+  }
+
+  return wrap.childElementCount ? wrap : null;
 }
 
 function lssdDecorateCards(gridSelector,records,table){
-  if(!state.canEdit) return;
-  const cards=$$(gridSelector+" .record-card");
+  if(!state.canEdit && !state.canDelete) return;
+  const cards=$(gridSelector+" .record-card");
   cards.forEach((card,i)=>{
     const row=records[i];
-    if(!row || card.querySelector(".edit-btn")) return;
-    card.appendChild(lssdEditButton(table,row.id));
+    if(!row || card.querySelector(".record-actions")) return;
+    const actions=lssdActionButtons(table,row.id);
+    if(actions) card.appendChild(actions);
   });
 }
 
@@ -171,13 +192,14 @@ function lssdSearchRows(){
 const lssdBaseRenderSearchResults=renderSearchResults;
 renderSearchResults=function(){
   lssdBaseRenderSearchResults();
-  if(!state.canEdit) return;
+  if(!state.canEdit && !state.canDelete) return;
   const rows=lssdSearchRows();
-  const cards=$$("#searchResultsGrid .record-card");
+  const cards=$("#searchResultsGrid .record-card");
   cards.forEach((card,i)=>{
     const item=rows[i];
-    if(!item || card.querySelector(".edit-btn")) return;
-    card.appendChild(lssdEditButton(item.table,item.row.id));
+    if(!item || card.querySelector(".record-actions")) return;
+    const actions=lssdActionButtons(item.table,item.row.id);
+    if(actions) card.appendChild(actions);
   });
 };
 
@@ -199,6 +221,31 @@ const LSSD_EDIT_FIELDS={
     ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["rank","Ranga","text"],["end_date","Ostatni dzień służby","text"],["reason","Powód / treść wypowiedzenia","textarea"]
   ]
 };
+
+async function lssdDeleteRecord(table,id){
+  if(!state.canDelete) return;
+
+  const row=lssdGetRow(table,id);
+  const label=row?.title || row?.officer_name || "ten wpis";
+  if(!window.confirm("Na pewno usunąć: "+label+"?")) return;
+
+  const res=await fetch(lssdApiUrl+"/api/delete",{
+    method:"POST",
+    headers:{"Content-Type":"application/json",...lssdAuthHeader()},
+    body:JSON.stringify({table,id})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){
+    lssdShowLoginToast(data.error || "Nie udało się usunąć wpisu.");
+    return;
+  }
+
+  const list=state[table]||[];
+  const i=list.findIndex(x=>x.id===id);
+  if(i>=0) list.splice(i,1);
+  renderAll();
+  lssdShowLoginToast("Wpis został usunięty.");
+}
 
 function lssdGetRow(table,id){
   return (state[table]||[]).find(x=>x.id===id);
@@ -299,8 +346,16 @@ $("#editModal")?.addEventListener("click",e=>{if(e.target.id==="editModal")lssdC
 $("#editForm")?.addEventListener("submit",async e=>{e.preventDefault();await lssdSaveEdit()});
 
 document.addEventListener("click",e=>{
-  const btn=e.target.closest("[data-edit-table]");
-  if(btn) lssdOpenEdit(btn.dataset.editTable,btn.dataset.editId);
+  const edit=e.target.closest("[data-edit-table]");
+  if(edit){
+    lssdOpenEdit(edit.dataset.editTable,edit.dataset.editId);
+    return;
+  }
+
+  const del=e.target.closest("[data-delete-table]");
+  if(del){
+    lssdDeleteRecord(del.dataset.deleteTable,del.dataset.deleteId);
+  }
 });
 
 lssdRestoreDiscordSession().then(()=>renderAll());
