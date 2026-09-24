@@ -34,8 +34,10 @@ const commands=[
         {name:"DTU",value:"DTU"},
         {name:"SERT",value:"SERT"},
         {name:"IAD",value:"IAD"},
-        {name:"Deputy",value:"DEPUTY"}
+        {name:"Deputy",value:"DEPUTY"},
+        {name:"Utrata broni",value:"WEAPON_LOSS"}
       )),
+  new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
   new SlashCommandBuilder().setName("awans").setDescription("Zarejestruj awans funkcjonariusza"),
   new SlashCommandBuilder().setName("degrad").setDescription("Zarejestruj degradację funkcjonariusza"),
   new SlashCommandBuilder().setName("zwolnienia").setDescription("Zarejestruj zwolnienie funkcjonariusza"),
@@ -88,6 +90,29 @@ function reportModal(type){
     new ActionRowBuilder().addComponents(input("details","Treść raportu",TextInputStyle.Paragraph,true,"Opisz przebieg zdarzenia..."))
   );
   return modal;
+}
+
+function weaponLossModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("weapon_loss_modal")
+    .setTitle("Raport o utracie broni");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("serial_number","Numer seryjny broni",TextInputStyle.Short,true,"np. LS-458291")),
+    new ActionRowBuilder().addComponents(input("weapon_model","Model broni",TextInputStyle.Short,true,"np. Glock 17")),
+    new ActionRowBuilder().addComponents(input("loss_datetime","Data i godzina utraty",TextInputStyle.Short,true,"np. 25.09.2026 00:15")),
+    new ActionRowBuilder().addComponents(input("badge","Twój numer odznaki",TextInputStyle.Short,true,"np. 11404")),
+    new ActionRowBuilder().addComponents(input("circumstances","Opis okoliczności utraty",TextInputStyle.Paragraph,true,"Opisz dokładnie, kiedy i w jakich okolicznościach utracono broń"))
+  );
+  return modal;
+}
+
+function cleanOfficerName(interaction){
+  const raw=interaction.member?.displayName || interaction.user.globalName || interaction.user.username;
+  return String(raw)
+    .replace(/^\s*\[[^\]]+\]\s*/,"")
+    .replace(/^\s*\([^\)]+\)\s*/,"")
+    .trim();
 }
 
 function promotionModal(){
@@ -249,6 +274,30 @@ async function publishReportLog(interaction,row){
   await channel.send({embeds:[embed]});
 }
 
+async function publishWeaponLossLog(interaction,row){
+  const channelId=process.env.DATABASE_LOG_CHANNEL_ID;
+  if(!channelId) return;
+
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const embed=new EmbedBuilder()
+    .setTitle("DATABASE • RAPORT O UTRACIE BRONI")
+    .setDescription("Zarejestrowano raport o utracie broni.")
+    .addFields(
+      {name:"Numer seryjny",value:row.subject?.split(" | ")[0]?.replace("SN: ","") || "—",inline:true},
+      {name:"Model broni",value:row.subject?.split(" | ")[1]?.replace("Model: ","") || "—",inline:true},
+      {name:"Odznaka",value:row.badge_number || "—",inline:true},
+      {name:"Funkcjonariusz",value:cleanOfficerName(interaction),inline:true},
+      {name:"Autor",value:interaction.user.toString(),inline:true}
+    )
+    .setColor(0xC9AA51)
+    .setFooter({text:"LSSD Records Database • Raport o utracie broni"})
+    .setTimestamp();
+
+  await channel.send({embeds:[embed]});
+}
+
 client.once("ready",async()=>{
   const rest=new REST({version:"10"}).setToken(process.env.DISCORD_TOKEN);
   await rest.put(
@@ -260,6 +309,11 @@ client.once("ready",async()=>{
 
 client.on("interactionCreate",async interaction=>{
   try{
+    if(interaction.isChatInputCommand() && interaction.commandName==="utrata-broni"){
+      await interaction.showModal(weaponLossModal());
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="awans"){
       await interaction.showModal(promotionModal());
       return;
@@ -282,7 +336,8 @@ client.on("interactionCreate",async interaction=>{
 
     if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
       const type=interaction.options.getString("typ",true);
-      await interaction.showModal(reportModal(type));
+      if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+      else await interaction.showModal(reportModal(type));
       return;
     }
 
@@ -295,6 +350,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport SERT",value:"SERT",description:"Special Emergency Response Team"},
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport Deputy",value:"DEPUTY",description:"Raport funkcjonariusza patrolowego"},
+          {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
           {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
           {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
           {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"},
@@ -315,7 +371,33 @@ client.on("interactionCreate",async interaction=>{
       else if(type==="DEMOTION") await interaction.showModal(demotionModal());
       else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
       else if(type==="RESIGNATION") await interaction.showModal(resignationModal());
+      else if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
       else await interaction.showModal(reportModal(type));
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="weapon_loss_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const serial=interaction.fields.getTextInputValue("serial_number").trim();
+      const model=interaction.fields.getTextInputValue("weapon_model").trim();
+      const lossDateTime=interaction.fields.getTextInputValue("loss_datetime").trim();
+      const badge=interaction.fields.getTextInputValue("badge").trim();
+      const circumstances=interaction.fields.getTextInputValue("circumstances").trim();
+      const officerName=cleanOfficerName(interaction);
+
+      const row=await supabaseInsert("reports",{
+        report_type:"WEAPON_LOSS",
+        title:"Raport o utracie broni",
+        subject:`SN: ${serial} | Model: ${model}`,
+        badge_number:badge,
+        details:`Data i godzina utraty: ${lossDateTime}\n\nOpis okoliczności utraty:\n${circumstances}\n\nPodpis: ${officerName} [${badge}]`,
+        author_discord_id:interaction.user.id,
+        author_discord_name:officerName
+      });
+
+      await publishWeaponLossLog(interaction,row);
+      await interaction.editReply(`✅ **Raport o utracie broni** został zapisany w Database. ID: \`${row.id}\``);
       return;
     }
 
