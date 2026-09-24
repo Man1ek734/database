@@ -150,7 +150,8 @@ async function publishPersonnelChange(interaction,row,type){
   const channelId =
     type==="PROMOTION" ? process.env.PROMOTION_CHANNEL_ID :
     type==="DEMOTION" ? (process.env.DEMOTION_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
-    (process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID);
+    type==="DISMISSAL" ? (process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
+    (process.env.RESIGNATION_CHANNEL_ID || process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID);
 
   if(!channelId) return;
   const channel=await client.channels.fetch(channelId).catch(()=>null);
@@ -159,36 +160,40 @@ async function publishPersonnelChange(interaction,row,type){
   const title =
     type==="PROMOTION" ? "LSSD • PROMOTION NOTICE" :
     type==="DEMOTION" ? "LSSD • DEMOTION NOTICE" :
-    "LSSD • DISMISSAL NOTICE";
+    type==="DISMISSAL" ? "LSSD • DISMISSAL NOTICE" :
+    "LSSD • RESIGNATION NOTICE";
 
   const description =
     type==="PROMOTION" ? `**${row.officer_name}** otrzymuje awans.` :
     type==="DEMOTION" ? `**${row.officer_name}** otrzymuje degradację.` :
-    `**${row.officer_name}** kończy służbę w LSSD.`;
+    type==="DISMISSAL" ? `**${row.officer_name}** zostaje zwolniony ze służby.` :
+    `**${row.officer_name}** składa wypowiedzenie ze służby.`;
 
-  const fields=[
-    {name:"Numer odznaki",value:row.badge_number || "—",inline:true}
-  ];
+  const fields=[{name:"Numer odznaki",value:row.badge_number || "—",inline:true}];
 
-  if(type==="DISMISSAL"){
-    fields.push({name:"Stopień",value:row.rank || "—",inline:true});
-  }else{
+  if(type==="PROMOTION" || type==="DEMOTION"){
     fields.push(
-      {name:"Poprzedni stopień",value:row.old_rank,inline:true},
-      {name:"Nowy stopień",value:row.new_rank,inline:true}
+      {name:"Poprzedni stopień",value:row.old_rank || "—",inline:true},
+      {name:"Nowy stopień",value:row.new_rank || "—",inline:true}
     );
+  }else{
+    fields.push({name:"Stopień",value:row.rank || "—",inline:true});
+  }
+
+  if(type==="RESIGNATION" && row.end_date){
+    fields.push({name:"Ostatni dzień służby",value:row.end_date,inline:true});
   }
 
   fields.push(
     {name:"Uzasadnienie",value:row.reason || "—"},
-    {name:"Zatwierdził",value:interaction.user.toString()}
+    {name:"Wprowadził",value:interaction.user.toString()}
   );
 
   const embed=new EmbedBuilder()
     .setTitle(title)
     .setDescription(description)
     .addFields(fields)
-    .setColor(type==="PROMOTION" ? 0xC9AA51 : type==="DEMOTION" ? 0xD98C3F : 0xB84A55)
+    .setColor(type==="PROMOTION" ? 0xC9AA51 : type==="DEMOTION" ? 0xD98C3F : type==="DISMISSAL" ? 0xB84A55 : 0x7A8AA0)
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
