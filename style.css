@@ -56,7 +56,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 .search-box{width:min(360px,35vw)}
 .search-box input{padding:11px 14px}
 .user-chip{display:flex;align-items:center;gap:10px;padding-left:14px;border-left:1px solid var(--line)}
-.user-chip>span{width:36px;height:36px;border-radius:50%;background:#172133;color:var(--gold);display:grid;place-items:center;font-size:11px;font-weight:900}
+.user-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#172133;border:1px solid rgba(201,170,81,.35);flex:0 0 auto}
 .user-chip strong,.user-chip small{display:block;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .user-chip strong{font-size:12px}
 .user-chip small{font-size:10px;color:var(--muted);margin-top:2px}
