@@ -131,6 +131,21 @@ function dismissalModal(){
   return modal;
 }
 
+function resignationModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("resignation_modal")
+    .setTitle("Rejestracja wypowiedzenia");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
+    new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
+    new ActionRowBuilder().addComponents(input("rank","Aktualny stopień")),
+    new ActionRowBuilder().addComponents(input("end_date","Ostatni dzień służby",TextInputStyle.Short,false,"np. 30.09.2026")),
+    new ActionRowBuilder().addComponents(input("reason","Powód / treść wypowiedzenia",TextInputStyle.Paragraph,true,"Krótko opisz wypowiedzenie"))
+  );
+  return modal;
+}
+
 async function publishPersonnelChange(interaction,row,type){
   const channelId =
     type==="PROMOTION" ? process.env.PROMOTION_CHANNEL_ID :
@@ -252,6 +267,11 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    if(interaction.isChatInputCommand() && interaction.commandName==="wypowiedzenia"){
+      await interaction.showModal(resignationModal());
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
       const type=interaction.options.getString("typ",true);
       await interaction.showModal(reportModal(type));
@@ -286,6 +306,7 @@ client.on("interactionCreate",async interaction=>{
       if(type==="PROMOTION") await interaction.showModal(promotionModal());
       else if(type==="DEMOTION") await interaction.showModal(demotionModal());
       else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
+      else if(type==="RESIGNATION") await interaction.showModal(resignationModal());
       else await interaction.showModal(reportModal(type));
       return;
     }
@@ -359,6 +380,23 @@ client.on("interactionCreate",async interaction=>{
 
       await publishPersonnelChange(interaction,row,"DISMISSAL");
       await interaction.editReply(`✅ Zwolnienie zostało zapisane w bazie i opublikowane na Discordzie. ID: \`${row.id}\``);
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="resignation_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const row=await supabaseInsert("resignations",{
+        officer_name:interaction.fields.getTextInputValue("officer"),
+        badge_number:interaction.fields.getTextInputValue("badge"),
+        rank:interaction.fields.getTextInputValue("rank"),
+        end_date:interaction.fields.getTextInputValue("end_date") || null,
+        reason:interaction.fields.getTextInputValue("reason"),
+        submitted_by:interaction.user.globalName || interaction.user.username,
+        submitted_by_discord_id:interaction.user.id
+      });
+
+      await publishPersonnelChange(interaction,row,"RESIGNATION");
+      await interaction.editReply(`✅ Wypowiedzenie zostało zapisane w bazie i opublikowane na Discordzie. ID: \`${row.id}\``);
     }
   }catch(error){
     console.error(error);
