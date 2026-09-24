@@ -4,12 +4,7 @@ const supabaseClient = configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
   : null;
 
-const demoReports = [
-  {id:1,report_type:"DTU",title:"Investigation Report #024",subject:"John Doe",details:"Raport demonstracyjny. Po podłączeniu Supabase w tym miejscu pojawią się prawdziwe rekordy z bota Discord.",badge_number:"530",author_discord_name:"Demo Deputy",created_at:new Date().toISOString()},
-  {id:2,report_type:"SERT",title:"SERT Deployment #009",subject:"High Risk Incident",details:"Przykładowy wpis pokazujący wygląd raportu jednostki SERT.",badge_number:"411",author_discord_name:"Demo Supervisor",created_at:new Date(Date.now()-3600000).toISOString()},
-  {id:3,report_type:"IAD",title:"Internal Review #004",subject:"Administrative Review",details:"Przykładowy rekord IAD.",badge_number:"201",author_discord_name:"Demo IAD",created_at:new Date(Date.now()-7200000).toISOString()},
-  {id:4,report_type:"DEPUTY",title:"Patrol Report #108",subject:"Davis Avenue",details:"Przykładowy raport Deputy.",badge_number:"11530",author_discord_name:"Demo Deputy",created_at:new Date(Date.now()-10800000).toISOString()}
-];
+const demoReports = [];
 const demoPromotions = [];
 
 const state={reports:[],promotions:[],currentView:"dashboard",forcedType:"ALL",query:""};
