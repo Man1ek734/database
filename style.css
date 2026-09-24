@@ -37,7 +37,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 .app-shell{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
 .sidebar{position:sticky;top:0;height:100vh;padding:26px 18px;border-right:1px solid var(--line);background:rgba(9,14,23,.95);backdrop-filter:blur(16px);display:flex;flex-direction:column}
 .brand{display:flex;align-items:center;gap:13px;padding:0 8px 24px;border-bottom:1px solid var(--line)}
-.brand-seal{width:50px;height:50px;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-family:"Bebas Neue";font-size:19px;color:var(--gold)}
+.brand-logo{width:56px;height:56px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
 .brand strong{display:block;font-family:"Bebas Neue";font-size:24px;letter-spacing:.09em}
 .brand span{font-size:10px;color:var(--muted);letter-spacing:.2em}
 .nav{display:grid;gap:6px;margin-top:24px}
@@ -51,7 +51,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 .ghost-btn{width:100%;border:1px solid var(--line);background:transparent;color:#aeb8c5;border-radius:9px;padding:9px}
 .main{min-width:0}
 .topbar{height:92px;padding:18px 30px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:22px;background:rgba(9,13,21,.75);backdrop-filter:blur(12px);position:sticky;top:0;z-index:5}
-.topbar h2{font-family:"Bebas Neue";font-size:28px;letter-spacing:.05em;margin:0}
+.topbar-title-group{display:flex;align-items:center;gap:13px}.topbar-logo{width:48px;height:48px;object-fit:contain;filter:drop-shadow(0 5px 12px rgba(0,0,0,.35))}.topbar h2{font-family:"Bebas Neue";font-size:28px;letter-spacing:.05em;margin:0}
 .top-actions{display:flex;align-items:center;gap:14px}
 .search-box{width:min(360px,35vw)}
 .search-box input{padding:11px 14px}
@@ -67,9 +67,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
   linear-gradient(135deg,#131c29,#0d131e);box-shadow:var(--shadow)}
 .hero h1,.section-intro h1{font-family:"Bebas Neue";font-size:48px;letter-spacing:.04em;margin:0 0 12px}
 .hero p:not(.eyebrow){max-width:650px;color:#aab4c1;line-height:1.65;margin:0}
-.hero-stamp{width:150px;height:150px;border:1px solid rgba(201,170,81,.7);border-radius:50%;display:grid;place-content:center;text-align:center;box-shadow:0 0 0 8px rgba(201,170,81,.04)}
-.hero-stamp strong{font-family:"Bebas Neue";font-size:45px;color:var(--gold);letter-spacing:.08em}
-.hero-stamp span{font-size:9px;font-weight:800;color:#a89053;letter-spacing:.17em}
+.hero-logo-wrap{width:180px;height:180px;display:grid;place-items:center;flex:0 0 auto}.hero-logo{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 15px 28px rgba(0,0,0,.42))}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-top:18px}
 .stat-card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:15px;padding:20px}
 .stat-card span{font-size:10px;font-weight:800;color:#8490a1;letter-spacing:.1em}
@@ -112,7 +110,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
  .search-box{width:100%}
  .view{padding:18px}
  .hero{padding:25px}
- .hero-stamp{display:none}
+ .hero-logo-wrap{width:130px;height:130px;margin:auto}
  .stats-grid{grid-template-columns:1fr 1fr}
  .section-intro{align-items:flex-start;flex-direction:column}
 }
