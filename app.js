@@ -10,9 +10,7 @@ const demoReports = [
   {id:3,report_type:"IAD",title:"Internal Review #004",subject:"Administrative Review",details:"Przykładowy rekord IAD.",badge_number:"201",author_discord_name:"Demo IAD",created_at:new Date(Date.now()-7200000).toISOString()},
   {id:4,report_type:"DEPUTY",title:"Patrol Report #108",subject:"Davis Avenue",details:"Przykładowy raport Deputy.",badge_number:"11530",author_discord_name:"Demo Deputy",created_at:new Date(Date.now()-10800000).toISOString()}
 ];
-const demoPromotions = [
-  {id:1,officer_name:"Michael Davis",badge_number:"530",old_rank:"Deputy Sheriff II",new_rank:"Deputy Sheriff III",reason:"Dobra aktywność i wyniki służbowe.",promoted_by:"Command Staff",created_at:new Date(Date.now()-5400000).toISOString()}
-];
+const demoPromotions = [];
 
 const state={reports:[],promotions:[],currentView:"dashboard",forcedType:"ALL",query:""};
 
