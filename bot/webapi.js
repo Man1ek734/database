@@ -95,6 +95,22 @@ async function readJson(req){
   return body ? JSON.parse(body) : {};
 }
 
+function discordAvatarUrl(userId,hash,guildId=null){
+  if(hash){
+    const ext=hash.startsWith("a_") ? "gif" : "png";
+    if(guildId){
+      return "https://cdn.discordapp.com/guilds/"+guildId+"/users/"+userId+"/avatars/"+hash+"."+ext+"?size=128";
+    }
+    return "https://cdn.discordapp.com/avatars/"+userId+"/"+hash+"."+ext+"?size=128";
+  }
+
+  let index=0;
+  try{
+    index=Number((BigInt(userId)>>22n)%6n);
+  }catch{}
+  return "https://cdn.discordapp.com/embed/avatars/"+index+".png";
+}
+
 async function getGuildRoles(){
   if(Date.now()<roleCache.expires && roleCache.roles.length) return roleCache.roles;
   const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/roles";
@@ -118,17 +134,16 @@ async function getMemberPermissions(userId){
   }).filter(Boolean);
   const matched=LSSD_RANKS.filter(rank=>names.some(name=>name.toLowerCase()===rank.toLowerCase()));
 
-  let avatarUrl=null;
-  if(member.avatar){
-    avatarUrl="https://cdn.discordapp.com/guilds/"+process.env.DISCORD_GUILD_ID+"/users/"+userId+"/avatars/"+member.avatar+".png?size=128";
-  }
+  const avatarUrl = member.avatar
+    ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
+    : discordAvatarUrl(userId,member.user?.avatar || null);
 
   return {
     member:true,
     roles:names,
     rank:matched[0] || null,
     canEdit:matched.length>0,
-    nickname:member.nick || null,
+    nickname:member.nick || member.user?.global_name || member.user?.username || null,
     memberAvatarUrl:avatarUrl
   };
 }
@@ -252,10 +267,7 @@ export function startWebApi({writeRecord}){
           return;
         }
         const perms=await getMemberPermissions(session.sub);
-        let userAvatarUrl=null;
-        if(session.avatar){
-          userAvatarUrl="https://cdn.discordapp.com/avatars/"+session.sub+"/"+session.avatar+".png?size=128";
-        }
+        const userAvatarUrl=discordAvatarUrl(session.sub,session.avatar || null);
         sendJson(res,200,{
           authenticated:true,
           user:{
