@@ -268,9 +268,11 @@ async function lssdSaveEdit(){
 }
 
 $("#discordLoginBtn")?.addEventListener("click",()=>{
-  const discordUrl=String((window.LSSD_CONFIG||{}).DISCORD_LOGIN_URL||"");
-  if(discordUrl) window.open(discordUrl,"_blank","noopener,noreferrer");
-  lssdShowLoginToast("Na Discordzie wpisz /login. Bot wyśle Ci prywatny, jednorazowy link do zalogowania.");
+  if(!lssdApiUrl){
+    lssdShowLoginToast("Logowanie Discord jest chwilowo niedostępne.");
+    return;
+  }
+  location.href=lssdApiUrl+"/auth/discord";
 });
 $("#discordLogoutBtn")?.addEventListener("click",()=>{
   localStorage.removeItem("lssd_discord_session");
