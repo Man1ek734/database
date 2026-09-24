@@ -1,6 +1,6 @@
 -- LSSD RECORDS DATABASE
 -- Uruchom w Supabase SQL Editor.
--- Bot korzysta z SERVICE_ROLE_KEY, strona z ANON_KEY + logowaniem użytkownika.
+-- Bot korzysta z SERVICE_ROLE_KEY, strona z publicznym kluczem tylko do odczytu.
 
 create extension if not exists pgcrypto;
 
@@ -108,6 +108,37 @@ drop policy if exists "authenticated can read resignations" on public.resignatio
 create policy "authenticated can read resignations"
 on public.resignations for select
 to authenticated
+using (true);
+
+-- Strona WWW jest dostępna bez logowania i ma wyłącznie odczyt.
+drop policy if exists "anon can read reports" on public.reports;
+create policy "anon can read reports"
+on public.reports for select
+to anon
+using (true);
+
+drop policy if exists "anon can read promotions" on public.promotions;
+create policy "anon can read promotions"
+on public.promotions for select
+to anon
+using (true);
+
+drop policy if exists "anon can read demotions" on public.demotions;
+create policy "anon can read demotions"
+on public.demotions for select
+to anon
+using (true);
+
+drop policy if exists "anon can read dismissals" on public.dismissals;
+create policy "anon can read dismissals"
+on public.dismissals for select
+to anon
+using (true);
+
+drop policy if exists "anon can read resignations" on public.resignations;
+create policy "anon can read resignations"
+on public.resignations for select
+to anon
 using (true);
 
 -- Brak polityk INSERT/UPDATE/DELETE dla zwykłych użytkowników.
