@@ -16,9 +16,7 @@ import {
 const required=[
   "DISCORD_TOKEN",
   "DISCORD_CLIENT_ID",
-  "DISCORD_GUILD_ID",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY"
+  "DISCORD_GUILD_ID"
 ];
 
 for(const key of required){
@@ -44,6 +42,10 @@ const commands=[
 ];
 
 async function supabaseInsert(table,payload){
+  if(!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY){
+    throw new Error("Supabase nie jest jeszcze skonfigurowany.");
+  }
+
   const res=await fetch(`${process.env.SUPABASE_URL}/rest/v1/${table}`,{
     method:"POST",
     headers:{
