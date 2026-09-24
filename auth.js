@@ -129,7 +129,7 @@ function lssdActionButtons(table,id){
 
 function lssdDecorateCards(gridSelector,records,table){
   if(!state.canEdit && !state.canDelete) return;
-  const cards=$(gridSelector+" .record-card");
+  const cards=$$(gridSelector+" .record-card");
   cards.forEach((card,i)=>{
     const row=records[i];
     if(!row || card.querySelector(".record-actions")) return;
@@ -196,7 +196,7 @@ renderSearchResults=function(){
   lssdBaseRenderSearchResults();
   if(!state.canEdit && !state.canDelete) return;
   const rows=lssdSearchRows();
-  const cards=$("#searchResultsGrid .record-card");
+  const cards=$$("#searchResultsGrid .record-card");
   cards.forEach((card,i)=>{
     const item=rows[i];
     if(!item || card.querySelector(".record-actions")) return;
