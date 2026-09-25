@@ -2,9 +2,13 @@ import "dotenv/config";
 import { startWebApi } from "./webapi.js";
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
+  PermissionFlagsBits,
   ModalBuilder,
   REST,
   Routes,
@@ -30,6 +34,78 @@ if(process.env.ENABLE_MEMBER_WELCOME==="true"){
   gatewayIntents.push(GatewayIntentBits.GuildMembers);
 }
 const client=new Client({intents:gatewayIntents});
+
+const TICKET_TYPES={
+  POMOC:{label:"Pomoc",emoji:"🛟",description:"Potrzebujesz pomocy lub informacji"},
+  SKARGA:{label:"Skarga",emoji:"⚠️",description:"Zgłoszenie skargi"},
+  ODWOLANIE:{label:"Odwołanie",emoji:"📄",description:"Odwołanie od decyzji"},
+  WNIOSEK:{label:"Wniosek",emoji:"📝",description:"Wniosek lub sprawa formalna"},
+  INNE:{label:"Inne",emoji:"📌",description:"Inna sprawa"}
+};
+
+const TICKET_STAFF_RANKS=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+
+function normalizeTicketRole(value=""){
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function ticketStaffRoleIds(guild){
+  const explicit=(process.env.TICKET_STAFF_ROLE_IDS||"")
+    .split(",")
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  if(explicit.length) return explicit;
+
+  const targets=TICKET_STAFF_RANKS.map(normalizeTicketRole);
+  return guild.roles.cache
+    .filter(role=>{
+      const n=normalizeTicketRole(role.name);
+      return targets.some(target=>n===target || n.endsWith(" "+target));
+    })
+    .map(role=>role.id);
+}
+
+function ticketPanelPayload(){
+  const embed=new EmbedBuilder()
+    .setTitle("🎫 LSSD • SYSTEM TICKETÓW")
+    .setDescription(
+      "Potrzebujesz pomocy lub chcesz skontaktować się z administracją LSSD?\n\n" +
+      "Kliknij **Utwórz ticket**, a następnie wybierz rodzaj zgłoszenia."
+    )
+    .setColor(0xC9AA51)
+    .setFooter({text:"Los Santos Sheriff's Department • Ticket Center"});
+
+  const button=new ButtonBuilder()
+    .setCustomId("ticket_open")
+    .setLabel("Utwórz ticket")
+    .setEmoji("🎫")
+    .setStyle(ButtonStyle.Primary);
+
+  return {embeds:[embed],components:[new ActionRowBuilder().addComponents(button)]};
+}
+
+async function ensureTicketPanel(){
+  const channelId=process.env.TICKET_PANEL_CHANNEL_ID;
+  if(!channelId) return;
+
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const recent=await channel.messages.fetch({limit:50}).catch(()=>null);
+  const exists=recent?.some(msg=>
+    msg.author?.id===client.user.id &&
+    msg.embeds?.[0]?.title==="🎫 LSSD • SYSTEM TICKETÓW"
+  );
+
+  if(!exists) await channel.send(ticketPanelPayload());
+}
 
 const commands=[
   new SlashCommandBuilder().setName("database").setDescription("Otwórz główne menu LSSD Records Database"),
@@ -515,11 +591,190 @@ client.once("ready",async()=>{
     Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID,process.env.DISCORD_GUILD_ID),
     {body:commands.map(command=>command.toJSON())}
   );
+  await ensureTicketPanel().catch(error=>console.error("Ticket panel error:",error));
   console.log(`LSSD Database Bot online jako ${client.user.tag}`);
 });
 
 client.on("interactionCreate",async interaction=>{
   try{
+    if(interaction.isButton() && interaction.customId==="ticket_open"){
+      const menu=new StringSelectMenuBuilder()
+        .setCustomId("ticket_type")
+        .setPlaceholder("Wybierz rodzaj ticketu")
+        .addOptions(
+          Object.entries(TICKET_TYPES).map(([value,item])=>({
+            label:item.label,
+            value,
+            description:item.description,
+            emoji:item.emoji
+          }))
+        );
+
+      await interaction.reply({
+        content:"**Wybierz rodzaj zgłoszenia:**",
+        components:[new ActionRowBuilder().addComponents(menu)],
+        ephemeral:true
+      });
+      return;
+    }
+
+    if(interaction.isStringSelectMenu() && interaction.customId==="ticket_type"){
+      await interaction.deferReply({ephemeral:true});
+
+      const type=interaction.values[0];
+      const config=TICKET_TYPES[type];
+      if(!config){
+        await interaction.editReply("❌ Nieprawidłowy typ ticketu.");
+        return;
+      }
+
+      const guild=interaction.guild;
+      if(!guild){
+        await interaction.editReply("❌ Ticket można utworzyć tylko na serwerze.");
+        return;
+      }
+
+      await guild.channels.fetch().catch(()=>null);
+      const existing=guild.channels.cache.find(ch=>
+        ch.type===ChannelType.GuildText &&
+        ch.topic?.includes(`ticket-owner:${interaction.user.id}`) &&
+        !ch.name.startsWith("closed-")
+      );
+
+      if(existing){
+        await interaction.editReply(`Masz już otwarty ticket: ${existing.toString()}`);
+        return;
+      }
+
+      const panelChannel=await guild.channels.fetch(process.env.TICKET_PANEL_CHANNEL_ID).catch(()=>null);
+      const staffRoleIds=ticketStaffRoleIds(guild);
+      const safeUser=interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g,"").slice(0,24) || "user";
+
+      const permissionOverwrites=[
+        {
+          id:guild.roles.everyone.id,
+          deny:[PermissionFlagsBits.ViewChannel]
+        },
+        {
+          id:interaction.user.id,
+          allow:[
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks
+          ]
+        },
+        {
+          id:client.user.id,
+          allow:[
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits.ManageMessages,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks
+          ]
+        },
+        ...staffRoleIds.map(id=>({
+          id,
+          allow:[
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks
+          ]
+        }))
+      ];
+
+      const ticket=await guild.channels.create({
+        name:`ticket-${safeUser}`,
+        type:ChannelType.GuildText,
+        parent:panelChannel?.parentId || undefined,
+        topic:`ticket-owner:${interaction.user.id} | type:${type}`,
+        permissionOverwrites
+      });
+
+      const embed=new EmbedBuilder()
+        .setTitle(`${config.emoji} ${config.label.toUpperCase()} • TICKET`)
+        .setDescription(
+          `Witaj ${interaction.user.toString()}!\n\n` +
+          "Opisz dokładnie swoją sprawę. Członek obsługi odpowie najszybciej jak to możliwe."
+        )
+        .addFields(
+          {name:"Kategoria",value:config.label,inline:true},
+          {name:"Autor",value:interaction.user.toString(),inline:true}
+        )
+        .setColor(0xC9AA51)
+        .setFooter({text:"LSSD Ticket System"});
+
+      const claim=new ButtonBuilder()
+        .setCustomId("ticket_claim")
+        .setLabel("Przejmij")
+        .setEmoji("✋")
+        .setStyle(ButtonStyle.Secondary);
+
+      const close=new ButtonBuilder()
+        .setCustomId("ticket_close")
+        .setLabel("Zamknij")
+        .setEmoji("🔒")
+        .setStyle(ButtonStyle.Danger);
+
+      await ticket.send({
+        content:interaction.user.toString(),
+        embeds:[embed],
+        components:[new ActionRowBuilder().addComponents(claim,close)],
+        allowedMentions:{users:[interaction.user.id]}
+      });
+
+      await interaction.editReply(`✅ Ticket utworzony: ${ticket.toString()}`);
+      return;
+    }
+
+    if(interaction.isButton() && interaction.customId==="ticket_claim"){
+      if(!interaction.channel?.topic?.includes("ticket-owner:")){
+        await interaction.reply({content:"❌ To nie jest kanał ticketu.",ephemeral:true});
+        return;
+      }
+
+      await interaction.reply({
+        content:`✋ Ticket przejął ${interaction.user.toString()}.`,
+        allowedMentions:{users:[interaction.user.id]}
+      });
+      return;
+    }
+
+    if(interaction.isButton() && interaction.customId==="ticket_close"){
+      if(!interaction.channel?.topic?.includes("ticket-owner:")){
+        await interaction.reply({content:"❌ To nie jest kanał ticketu.",ephemeral:true});
+        return;
+      }
+
+      const ownerMatch=interaction.channel.topic.match(/ticket-owner:(\d+)/);
+      const ownerId=ownerMatch?.[1];
+
+      if(ownerId){
+        await interaction.channel.permissionOverwrites.edit(ownerId,{
+          SendMessages:false,
+          AddReactions:false
+        }).catch(()=>null);
+      }
+
+      const newName=interaction.channel.name.startsWith("closed-")
+        ? interaction.channel.name
+        : `closed-${interaction.channel.name.replace(/^ticket-/,"")}`;
+
+      await interaction.channel.setName(newName.slice(0,100)).catch(()=>null);
+
+      await interaction.reply({
+        content:`🔒 Ticket zamknięty przez ${interaction.user.toString()}.`,
+        allowedMentions:{users:[interaction.user.id]}
+      });
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="urlop"){
       await interaction.showModal(vacationModal());
       return;
