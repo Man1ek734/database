@@ -38,6 +38,7 @@ const commands=[
         {name:"Utrata broni",value:"WEAPON_LOSS"}
       )),
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
+  new SlashCommandBuilder().setName("zawias").setDescription("Zarejestruj zawieszenie funkcjonariusza"),
   new SlashCommandBuilder().setName("awans").setDescription("Zarejestruj awans funkcjonariusza"),
   new SlashCommandBuilder().setName("degrad").setDescription("Zarejestruj degradację funkcjonariusza"),
   new SlashCommandBuilder().setName("zwolnienia").setDescription("Zarejestruj zwolnienie funkcjonariusza"),
@@ -128,6 +129,21 @@ function cleanOfficerName(interaction){
     .replace(/^\s*\[[^\]]+\]\s*/,"")
     .replace(/^\s*\([^\)]+\)\s*/,"")
     .trim();
+}
+
+function suspensionModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("suspension_modal")
+    .setTitle("Zawieszenie funkcjonariusza");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("officer","Funkcjonariusz — Imię Nazwisko")),
+    new ActionRowBuilder().addComponents(input("rank","Stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
+    new ActionRowBuilder().addComponents(input("from_date","Okres zawieszenia — od",TextInputStyle.Short,true,"DD.MM.RRRR")),
+    new ActionRowBuilder().addComponents(input("to_date","Okres zawieszenia — do",TextInputStyle.Short,true,"DD.MM.RRRR")),
+    new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód zawieszenia"))
+  );
+  return modal;
 }
 
 function promotionModal(){
@@ -302,6 +318,35 @@ async function publishReportLog(interaction,row){
   await channel.send({embeds:[embed]});
 }
 
+async function publishSuspensionLog(interaction,row){
+  const channelId=process.env.DATABASE_LOG_CHANNEL_ID;
+  if(!channelId) return;
+
+  const channel=await client.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.isTextBased()) return;
+
+  const parts=String(row.details||"").split("\n");
+  const rank=(parts.find(x=>x.startsWith("Stopień: "))||"").replace("Stopień: ","") || "—";
+  const period=(parts.find(x=>x.startsWith("Okres zawieszenia: "))||"").replace("Okres zawieszenia: ","") || "—";
+  const reasonIndex=parts.findIndex(x=>x==="Powód:");
+  const reason=reasonIndex>=0 ? parts.slice(reasonIndex+1).join("\n").trim() : "—";
+
+  const embed=new EmbedBuilder()
+    .setTitle("LSSD • ZAWIESZENIE")
+    .addFields(
+      {name:"Funkcjonariusz",value:row.subject || "—",inline:false},
+      {name:"Stopień",value:rank,inline:false},
+      {name:"Okres zawieszenia",value:period,inline:false},
+      {name:"Decyzję wydał",value:cleanOfficerName(interaction),inline:false},
+      {name:"Powód",value:reason || "—",inline:false}
+    )
+    .setColor(0xD98C3F)
+    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setTimestamp();
+
+  await channel.send({embeds:[embed]});
+}
+
 async function publishWeaponLossLog(interaction,row){
   const channelId=process.env.DATABASE_LOG_CHANNEL_ID;
   if(!channelId) return;
@@ -339,6 +384,11 @@ client.on("interactionCreate",async interaction=>{
   try{
     if(interaction.isChatInputCommand() && interaction.commandName==="utrata-broni"){
       await interaction.showModal(weaponLossModal());
+      return;
+    }
+
+    if(interaction.isChatInputCommand() && interaction.commandName==="zawias"){
+      await interaction.showModal(suspensionModal());
       return;
     }
 
@@ -380,6 +430,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport zastępcy",value:"DEPUTY",description:"Raport patrolowy zastępcy"},
           {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
+          {label:"Zawieszenie",value:"SUSPENSION",description:"Rejestracja zawieszenia funkcjonariusza"},
           {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
           {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
           {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"},
@@ -396,7 +447,8 @@ client.on("interactionCreate",async interaction=>{
 
     if(interaction.isStringSelectMenu() && interaction.customId==="database_type"){
       const type=interaction.values[0];
-      if(type==="PROMOTION") await interaction.showModal(promotionModal());
+      if(type==="SUSPENSION") await interaction.showModal(suspensionModal());
+      else if(type==="PROMOTION") await interaction.showModal(promotionModal());
       else if(type==="DEMOTION") await interaction.showModal(demotionModal());
       else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
       else if(type==="RESIGNATION") await interaction.showModal(resignationModal());
@@ -471,6 +523,31 @@ client.on("interactionCreate",async interaction=>{
 
       await publishReportLog(interaction,row);
       await interaction.editReply(`✅ Raport **${type}** został zapisany w bazie. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="suspension_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const officer=interaction.fields.getTextInputValue("officer").trim();
+      const rank=interaction.fields.getTextInputValue("rank").trim();
+      const fromDate=interaction.fields.getTextInputValue("from_date").trim();
+      const toDate=interaction.fields.getTextInputValue("to_date").trim();
+      const reason=interaction.fields.getTextInputValue("reason").trim();
+      const decisionBy=cleanOfficerName(interaction);
+
+      const row=await supabaseInsert("reports",{
+        report_type:"SUSPENSION",
+        title:"Zawieszenie funkcjonariusza",
+        subject:officer,
+        badge_number:null,
+        details:`Stopień: ${rank}\nOkres zawieszenia: od ${fromDate} do ${toDate}\nDecyzję wydał: ${decisionBy}\nPowód:\n${reason}`,
+        author_discord_id:interaction.user.id,
+        author_discord_name:decisionBy
+      });
+
+      await publishSuspensionLog(interaction,row);
+      await interaction.editReply(`✅ Zawieszenie **${officer}** zostało zapisane w Database. ID: \`${row.id}\``);
       return;
     }
 
