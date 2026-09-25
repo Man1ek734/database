@@ -255,7 +255,7 @@ const LSSD_EDIT_FIELDS={
     ["title","Tytuł","text"],["subject","Dotyczy","text"],["badge_number","Numer odznaki","text"],["details","Treść raportu","textarea"]
   ],
   promotions:[
-    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["old_rank","Poprzednia ranga","text"],["new_rank","Nowa ranga","text"],["reason","Uzasadnienie","textarea"]
+    ["officer_name","Funkcjonariusz","text"],["old_rank","Poprzedni stopień","text"],["new_rank","Nowy stopień","text"],["reason","Powód","textarea"]
   ],
   demotions:[
     ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["old_rank","Poprzednia ranga","text"],["new_rank","Nowa ranga","text"],["reason","Uzasadnienie","textarea"]
