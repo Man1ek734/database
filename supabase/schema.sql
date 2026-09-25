@@ -6,7 +6,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
-  report_type text not null check (report_type in ('DTU','SERT','IAD','DEPUTY','WEAPON_LOSS','SUSPENSION')),
+  report_type text not null check (report_type in ('DTU','SERT','IAD','DEPUTY','WEAPON_LOSS','SUSPENSION','PLUS','MINUS')),
   title text not null,
   subject text,
   details text not null,
@@ -38,6 +38,7 @@ create table if not exists public.demotions (
   reason text,
   demoted_by text not null,
   demoted_by_discord_id text not null,
+  decision_date text,
   created_at timestamptz not null default now()
 );
 
@@ -49,6 +50,7 @@ create table if not exists public.dismissals (
   reason text,
   dismissed_by text not null,
   dismissed_by_discord_id text not null,
+  dismissal_date text,
   created_at timestamptz not null default now()
 );
 
@@ -61,6 +63,7 @@ create table if not exists public.resignations (
   reason text,
   submitted_by text not null,
   submitted_by_discord_id text not null,
+  submitted_date text,
   created_at timestamptz not null default now()
 );
 
