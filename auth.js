@@ -208,8 +208,16 @@ const lssdBaseRenderDismissals=renderDismissals;
 renderDismissals=function(){
   lssdBaseRenderDismissals();
   const q=state.query.toLowerCase().trim();
-  const rows=state.dismissals.filter(p=>!q || [p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by].join(" ").toLowerCase().includes(q));
+  const rows=state.dismissals.filter(p=>!q || [p.officer_name,p.rank,p.reason,p.dismissed_by,p.dismissal_date].join(" ").toLowerCase().includes(q));
   lssdDecorateCards("#dismissalsGrid",rows,"dismissals");
+};
+
+const lssdBaseRenderResignations=renderResignations;
+renderResignations=function(){
+  lssdBaseRenderResignations();
+  const q=state.query.toLowerCase().trim();
+  const rows=state.resignations.filter(p=>!q || [p.officer_name,p.rank,p.reason,p.submitted_date,p.end_date].join(" ").toLowerCase().includes(q));
+  lssdDecorateCards("#resignationsGrid",rows,"resignations");
 };
 
 function lssdSearchRows(){
