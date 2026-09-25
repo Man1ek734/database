@@ -76,18 +76,24 @@ function ticketPanelPayload(){
     .setTitle("🎫 LSSD • SYSTEM TICKETÓW")
     .setDescription(
       "Potrzebujesz pomocy lub chcesz skontaktować się z administracją LSSD?\n\n" +
-      "Kliknij **Utwórz ticket**, a następnie wybierz rodzaj zgłoszenia."
+      "**Wybierz rodzaj zgłoszenia poniżej:**"
     )
     .setColor(0xC9AA51)
     .setFooter({text:"Los Santos Sheriff's Department • Ticket Center"});
 
-  const button=new ButtonBuilder()
-    .setCustomId("ticket_open")
-    .setLabel("Utwórz ticket")
-    .setEmoji("🎫")
-    .setStyle(ButtonStyle.Primary);
+  const menu=new StringSelectMenuBuilder()
+    .setCustomId("ticket_type")
+    .setPlaceholder("Wybierz rodzaj ticketu")
+    .addOptions(
+      Object.entries(TICKET_TYPES).map(([value,item])=>({
+        label:item.label,
+        value,
+        description:item.description,
+        emoji:item.emoji
+      }))
+    );
 
-  return {embeds:[embed],components:[new ActionRowBuilder().addComponents(button)]};
+  return {embeds:[embed],components:[new ActionRowBuilder().addComponents(menu)]};
 }
 
 async function ensureTicketPanel(){
@@ -98,12 +104,13 @@ async function ensureTicketPanel(){
   if(!channel?.isTextBased()) return;
 
   const recent=await channel.messages.fetch({limit:50}).catch(()=>null);
-  const exists=recent?.some(msg=>
+  const panelMessage=recent?.find(msg=>
     msg.author?.id===client.user.id &&
     msg.embeds?.[0]?.title==="🎫 LSSD • SYSTEM TICKETÓW"
   );
 
-  if(!exists) await channel.send(ticketPanelPayload());
+  if(panelMessage) await panelMessage.edit(ticketPanelPayload());
+  else await channel.send(ticketPanelPayload());
 }
 
 const commands=[
@@ -596,27 +603,6 @@ client.once("ready",async()=>{
 
 client.on("interactionCreate",async interaction=>{
   try{
-    if(interaction.isButton() && interaction.customId==="ticket_open"){
-      const menu=new StringSelectMenuBuilder()
-        .setCustomId("ticket_type")
-        .setPlaceholder("Wybierz rodzaj ticketu")
-        .addOptions(
-          Object.entries(TICKET_TYPES).map(([value,item])=>({
-            label:item.label,
-            value,
-            description:item.description,
-            emoji:item.emoji
-          }))
-        );
-
-      await interaction.reply({
-        content:"**Wybierz rodzaj zgłoszenia:**",
-        components:[new ActionRowBuilder().addComponents(menu)],
-        ephemeral:true
-      });
-      return;
-    }
-
     if(interaction.isStringSelectMenu() && interaction.customId==="ticket_type"){
       await interaction.deferReply({ephemeral:true});
 
