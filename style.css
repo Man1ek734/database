@@ -182,3 +182,14 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 .record-actions .edit-btn{float:none;margin:0}
 .delete-btn{border:1px solid rgba(213,91,102,.55);background:rgba(213,91,102,.08);color:#ef8a94;border-radius:8px;padding:7px 10px;font-size:10px;font-weight:900;letter-spacing:.06em}
 .delete-btn:hover{background:rgba(213,91,102,.16)}
+
+.stats-grid.stats-collapsed .stat-card:nth-child(n+5){display:none}
+.stats-toggle-wrap{display:flex;justify-content:center;margin:12px 0 4px}
+.stats-toggle-btn{border:1px solid var(--line);background:var(--panel2);color:#d7deea;border-radius:10px;padding:9px 18px;font-weight:800;font-size:12px;cursor:pointer}
+.stats-toggle-btn:hover{background:var(--panel);border-color:#4b5668}
+@media (max-width:900px){
+  .stats-grid.stats-collapsed .stat-card:nth-child(n+3){display:none}
+}
+@media (max-width:560px){
+  .stats-grid.stats-collapsed .stat-card:nth-child(n+2){display:none}
+}
