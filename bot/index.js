@@ -38,8 +38,7 @@ const client=new Client({intents:gatewayIntents});
 const TICKET_TYPES={
   POMOC:{label:"Pomoc",emoji:"🛟",description:"Potrzebujesz pomocy lub informacji"},
   SKARGA:{label:"Skarga",emoji:"⚠️",description:"Zgłoszenie skargi"},
-  ODWOLANIE:{label:"Odwołanie",emoji:"📄",description:"Odwołanie od decyzji"},
-  WNIOSEK:{label:"Wniosek",emoji:"📝",description:"Wniosek lub sprawa formalna"},
+  ZARZAD:{label:"Sprawa do zarządu",emoji:"👑",description:"Kontakt bezpośrednio z zarządem LSSD"},
   INNE:{label:"Inne",emoji:"📌",description:"Inna sprawa"}
 };
 
