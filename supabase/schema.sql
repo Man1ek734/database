@@ -25,6 +25,7 @@ create table if not exists public.promotions (
   reason text,
   promoted_by text not null,
   promoted_by_discord_id text not null,
+  decision_date text,
   created_at timestamptz not null default now()
 );
 
