@@ -43,6 +43,7 @@ const commands=[
         {name:"Utrata broni",value:"WEAPON_LOSS"}
       )),
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
+  new SlashCommandBuilder().setName("urlop").setDescription("Złóż wniosek urlopowy"),
   new SlashCommandBuilder().setName("plus").setDescription("Nadaj plus funkcjonariuszowi")
     .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba, która otrzymuje plus").setRequired(true)),
   new SlashCommandBuilder().setName("minus").setDescription("Nadaj minus funkcjonariuszowi")
@@ -143,6 +144,20 @@ function cleanOfficerName(interaction){
     .replace(/^\s*\[[^\]]+\]\s*/,"")
     .replace(/^\s*\([^\)]+\)\s*/,"")
     .trim();
+}
+
+function vacationModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("vacation_modal")
+    .setTitle("Wniosek urlopowy | LSSD");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("rank","Stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
+    new ActionRowBuilder().addComponents(input("from_date","Termin urlopu — od",TextInputStyle.Short,true,"DD.MM")),
+    new ActionRowBuilder().addComponents(input("to_date","Termin urlopu — do",TextInputStyle.Short,true,"DD.MM")),
+    new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód urlopu"))
+  );
+  return modal;
 }
 
 function suspensionModal(targetUserId){
@@ -386,6 +401,32 @@ async function publishReportLog(interaction,row){
   await channel.send({embeds:[embed]});
 }
 
+async function publishVacationLog(interaction,row){
+  const parts=String(row.details||"").split("\n");
+  const rank=(parts.find(x=>x.startsWith("Stopień: "))||"").replace("Stopień: ","") || "—";
+  const period=(parts.find(x=>x.startsWith("Termin urlopu: "))||"").replace("Termin urlopu: ","") || "—";
+  const reasonIndex=parts.findIndex(x=>x==="Powód:");
+  const reason=reasonIndex>=0 ? parts.slice(reasonIndex+1).join("\n").trim() : "—";
+
+  const embed=new EmbedBuilder()
+    .setTitle("🏖️ WNIOSEK URLOPOWY | LSSD")
+    .addFields(
+      {name:"👮 Imię i nazwisko IC",value:row.subject || "—",inline:false},
+      {name:"🎖️ Stopień",value:rank,inline:false},
+      {name:"📅 Termin urlopu",value:period,inline:false},
+      {name:"📝 Powód",value:reason || "—",inline:false}
+    )
+    .setColor(0xC9AA51)
+    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setTimestamp();
+
+  return {
+    content:interaction.user.toString(),
+    embeds:[embed],
+    allowedMentions:{users:[interaction.user.id]}
+  };
+}
+
 async function publishSuspensionLog(interaction,row,targetUserId){
   const parts=String(row.details||"").split("\n");
   const rank=(parts.find(x=>x.startsWith("Stopień: "))||"").replace("Stopień: ","") || "—";
@@ -479,6 +520,11 @@ client.once("ready",async()=>{
 
 client.on("interactionCreate",async interaction=>{
   try{
+    if(interaction.isChatInputCommand() && interaction.commandName==="urlop"){
+      await interaction.showModal(vacationModal());
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="utrata-broni"){
       await interaction.showModal(weaponLossModal());
       return;
@@ -529,6 +575,7 @@ client.on("interactionCreate",async interaction=>{
     if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
       const type=interaction.options.getString("typ",true);
       if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+      else if(type==="VACATION") await interaction.showModal(vacationModal());
       else if(type==="DEPUTY") await interaction.showModal(deputyReportModal());
       else await interaction.showModal(reportModal(type));
       return;
@@ -544,6 +591,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport zastępcy",value:"DEPUTY",description:"Raport patrolowy zastępcy"},
           {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
+          {label:"Urlop",value:"VACATION",description:"Złóż wniosek urlopowy"},
           {label:"Plus",value:"PLUS",description:"Nadaj plus funkcjonariuszowi"},
           {label:"Minus",value:"MINUS",description:"Nadaj minus funkcjonariuszowi"},
           {label:"Zawieszenie",value:"SUSPENSION",description:"Rejestracja zawieszenia funkcjonariusza"},
@@ -637,6 +685,30 @@ client.on("interactionCreate",async interaction=>{
 
       await publishWeaponLossLog(interaction,row);
       await interaction.editReply(`✅ **Raport o utracie broni** został zapisany w Database. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="vacation_modal"){
+      await interaction.deferReply();
+
+      const officer=cleanOfficerName(interaction);
+      const rank=interaction.fields.getTextInputValue("rank").trim();
+      const fromDate=interaction.fields.getTextInputValue("from_date").trim();
+      const toDate=interaction.fields.getTextInputValue("to_date").trim();
+      const reason=interaction.fields.getTextInputValue("reason").trim();
+
+      const row=await supabaseInsert("reports",{
+        report_type:"VACATION",
+        title:"Wniosek urlopowy",
+        subject:officer,
+        badge_number:null,
+        details:`Stopień: ${rank}\nTermin urlopu: Od: ${fromDate} | Do: ${toDate}\nPowód:\n${reason}`,
+        author_discord_id:interaction.user.id,
+        author_discord_name:officer
+      });
+
+      const notice=await publishVacationLog(interaction,row);
+      await interaction.editReply(notice);
       return;
     }
 
