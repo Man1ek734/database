@@ -51,12 +51,27 @@ async function loadData(){
 }
 
 function renderAll(){
+  const reportCount=type=>state.reports.filter(r=>r.report_type===type).length;
+  $("#statAllEntries").textContent=
+    state.reports.length+
+    state.promotions.length+
+    state.demotions.length+
+    state.dismissals.length+
+    state.resignations.length;
+
   $("#statReports").textContent=state.reports.length;
-  $("#statSpecial").textContent=state.reports.filter(r=>["DTU","SERT"].includes(r.report_type)).length;
-  $("#statIad").textContent=state.reports.filter(r=>r.report_type==="IAD").length;
+  $("#statDtu").textContent=reportCount("DTU");
+  $("#statSert").textContent=reportCount("SERT");
+  $("#statIad").textContent=reportCount("IAD");
+  $("#statDeputy").textContent=reportCount("DEPUTY");
+  $("#statWeaponLoss").textContent=reportCount("WEAPON_LOSS");
+  $("#statSuspensions").textContent=reportCount("SUSPENSION");
+  $("#statPlus").textContent=reportCount("PLUS");
+  $("#statMinus").textContent=reportCount("MINUS");
   $("#statPromotions").textContent=state.promotions.length;
   $("#statDemotions").textContent=state.demotions.length;
   $("#statDismissals").textContent=state.dismissals.length;
+  $("#statResignations").textContent=state.resignations.length;
 
   $("#recentReports").innerHTML=state.reports.slice(0,5).map(r=>`
     <div class="compact-item">
