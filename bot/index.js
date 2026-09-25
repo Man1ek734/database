@@ -110,11 +110,11 @@ function ticketPanelPayload(){
   const embed=new EmbedBuilder()
     .setTitle("🎫 LSSD • SYSTEM TICKETÓW")
     .setDescription(
-      "Potrzebujesz pomocy lub chcesz skontaktować się z administracją LSSD?\n\n" +
-      "**Wybierz rodzaj zgłoszenia poniżej:**"
+      "**Wybierz kategorię zgłoszenia poniżej.**\n" +
+      "Po utworzeniu ticketu obsługa LSSD zajmie się Twoją sprawą."
     )
     .setColor(0xC9AA51)
-    .setFooter({text:"Los Santos Sheriff's Department • Ticket Center"});
+    .setFooter({text:"LSSD • Ticket Center"});
 
   const menu=new StringSelectMenuBuilder()
     .setCustomId("ticket_type")
