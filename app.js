@@ -128,7 +128,7 @@ function renderPromotions(){
 
 function renderDemotions(){
   const q=state.query.toLowerCase().trim();
-  const list=state.demotions.filter(p=>!q || [p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by].join(" ").toLowerCase().includes(q));
+  const list=state.demotions.filter(p=>!q || [p.officer_name,p.old_rank,p.new_rank,p.reason,p.demoted_by,p.decision_date].join(" ").toLowerCase().includes(q));
   $("#demotionsGrid").innerHTML=list.map(p=>`
     <article class="record-card">
       <div class="record-top">
@@ -139,15 +139,15 @@ function renderDemotions(){
       <div class="promotion-rank">${escapeHtml(p.old_rank)} <b>→</b> ${escapeHtml(p.new_rank)}</div>
       <p>${escapeHtml(p.reason||"Brak uzasadnienia.")}</p>
       <div class="record-meta">
-        <span>Odznaka: ${escapeHtml(p.badge_number||"—")}</span>
-        <span>Zatwierdził: ${escapeHtml(p.demoted_by||"—")}</span>
+        <span>Decyzję wydał: ${escapeHtml(p.demoted_by||"—")}</span>
+        <span>Data: ${escapeHtml(p.decision_date||"—")}</span>
       </div>
     </article>`).join("") || '<div class="empty">Brak degradacji.</div>';
 }
 
 function renderDismissals(){
   const q=state.query.toLowerCase().trim();
-  const list=state.dismissals.filter(p=>!q || [p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by].join(" ").toLowerCase().includes(q));
+  const list=state.dismissals.filter(p=>!q || [p.officer_name,p.rank,p.reason,p.dismissed_by,p.dismissal_date].join(" ").toLowerCase().includes(q));
   $("#dismissalsGrid").innerHTML=list.map(p=>`
     <article class="record-card">
       <div class="record-top">
@@ -158,8 +158,8 @@ function renderDismissals(){
       <div class="promotion-rank">${escapeHtml(p.rank||"—")} <b>→</b> ZWOLNIONY</div>
       <p>${escapeHtml(p.reason||"Brak uzasadnienia.")}</p>
       <div class="record-meta">
-        <span>Odznaka: ${escapeHtml(p.badge_number||"—")}</span>
-        <span>Zatwierdził: ${escapeHtml(p.dismissed_by||"—")}</span>
+        <span>Decyzję wydał: ${escapeHtml(p.dismissed_by||"—")}</span>
+        <span>Data zwolnienia: ${escapeHtml(p.dismissal_date||"—")}</span>
       </div>
     </article>`).join("") || '<div class="empty">Brak zwolnień.</div>';
 }
@@ -197,25 +197,25 @@ function renderSearchResults(){
         title:p.officer_name,
         subtitle:`${p.old_rank} → ${p.new_rank}`,
         description:p.reason || "Brak uzasadnienia.",
-        meta:[`Odznaka: ${p.badge_number||"—"}`,`Nadał: ${p.promoted_by||"—"}`,fmt(p.created_at)]
+        meta:[`Decyzję wydał: ${p.promoted_by||"—"}`,`Data: ${p.decision_date||"—"}`,fmt(p.created_at)]
       });
     }
   });
 
   state.demotions.forEach(p=>{
-    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.demoted_by,"degradacja"],q)){
+    if(matchesQuery([p.officer_name,p.old_rank,p.new_rank,p.reason,p.demoted_by,p.decision_date,"degradacja"],q)){
       results.push({
         type:"DEGRADACJA",
         title:p.officer_name,
         subtitle:`${p.old_rank} → ${p.new_rank}`,
         description:p.reason || "Brak uzasadnienia.",
-        meta:[`Odznaka: ${p.badge_number||"—"}`,`Zatwierdził: ${p.demoted_by||"—"}`,fmt(p.created_at)]
+        meta:[`Decyzję wydał: ${p.demoted_by||"—"}`,`Data: ${p.decision_date||"—"}`,fmt(p.created_at)]
       });
     }
   });
 
   state.dismissals.forEach(p=>{
-    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.dismissed_by,"zwolnienie"],q)){
+    if(matchesQuery([p.officer_name,p.rank,p.reason,p.dismissed_by,p.dismissal_date,"zwolnienie"],q)){
       results.push({
         type:"ZWOLNIENIE",
         title:p.officer_name,
@@ -227,13 +227,13 @@ function renderSearchResults(){
   });
 
   state.resignations.forEach(p=>{
-    if(matchesQuery([p.officer_name,p.badge_number,p.rank,p.reason,p.submitted_by,p.end_date,"wypowiedzenie"],q)){
+    if(matchesQuery([p.officer_name,p.rank,p.reason,p.submitted_date,p.end_date,"wypowiedzenie"],q)){
       results.push({
         type:"WYPOWIEDZENIE",
         title:p.officer_name,
         subtitle:`${p.rank||"—"} • ${p.end_date||"brak daty zakończenia"}`,
         description:p.reason || "Brak uzasadnienia.",
-        meta:[`Odznaka: ${p.badge_number||"—"}`,`Wprowadził: ${p.submitted_by||"—"}`,fmt(p.created_at)]
+        meta:[`Data złożenia: ${p.submitted_date||"—"}`,`Planowane zakończenie: ${p.end_date||"—"}`,fmt(p.created_at)]
       });
     }
   });
