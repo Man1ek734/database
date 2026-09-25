@@ -225,16 +225,6 @@ async function getTargetOfficerName(interaction,targetUserId){
 }
 
 async function publishPersonnelChange(interaction,row,type,targetUserId){
-  const channelId =
-    type==="PROMOTION" ? process.env.PROMOTION_CHANNEL_ID :
-    type==="DEMOTION" ? (process.env.DEMOTION_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
-    type==="DISMISSAL" ? (process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
-    (process.env.RESIGNATION_CHANNEL_ID || process.env.DISMISSAL_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID);
-
-  if(!channelId) return;
-  const channel=await client.channels.fetch(channelId).catch(()=>null);
-  if(!channel?.isTextBased()) return;
-
   let title="LSSD • PERSONNEL NOTICE";
   let description=`<@${targetUserId}> — aktualizacja statusu służbowego.`;
   let color=0xC9AA51;
@@ -297,11 +287,11 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
-  await channel.send({
+  return {
     content:`<@${targetUserId}>`,
     embeds:[embed],
     allowedMentions:{users:[targetUserId]}
-  });
+  };
 }
 
 async function publishPromotion(interaction,row){
@@ -351,12 +341,6 @@ async function publishReportLog(interaction,row){
 }
 
 async function publishSuspensionLog(interaction,row,targetUserId){
-  const channelId=process.env.DATABASE_LOG_CHANNEL_ID;
-  if(!channelId) return;
-
-  const channel=await client.channels.fetch(channelId).catch(()=>null);
-  if(!channel?.isTextBased()) return;
-
   const parts=String(row.details||"").split("\n");
   const rank=(parts.find(x=>x.startsWith("Stopień: "))||"").replace("Stopień: ","") || "—";
   const period=(parts.find(x=>x.startsWith("Okres zawieszenia: "))||"").replace("Okres zawieszenia: ","") || "—";
@@ -378,11 +362,11 @@ async function publishSuspensionLog(interaction,row,targetUserId){
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
-  await channel.send({
+  return {
     content:`<@${targetUserId}>`,
     embeds:[embed],
     allowedMentions:{users:[targetUserId]}
-  });
+  };
 }
 
 async function publishWeaponLossLog(interaction,row){
@@ -586,7 +570,7 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(interaction.isModalSubmit() && interaction.customId.startsWith("suspension_modal:")){
-      await interaction.deferReply({ephemeral:true});
+      await interaction.deferReply();
 
       const targetUserId=interaction.customId.split(":")[1];
       const targetMember=await interaction.guild?.members.fetch(targetUserId).catch(()=>null);
@@ -613,13 +597,13 @@ client.on("interactionCreate",async interaction=>{
         author_discord_name:decisionBy
       });
 
-      await publishSuspensionLog(interaction,row,targetUserId);
-      await interaction.editReply(`✅ Zawieszenie **${officer}** zostało zapisane i opublikowane. ID: \`${row.id}\``);
+      const notice=await publishSuspensionLog(interaction,row,targetUserId);
+      await interaction.editReply(notice);
       return;
     }
 
     if(interaction.isModalSubmit() && interaction.customId.startsWith("promotion_modal:")){
-      await interaction.deferReply({ephemeral:true});
+      await interaction.deferReply();
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
 
@@ -634,13 +618,13 @@ client.on("interactionCreate",async interaction=>{
         promoted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
-      await interaction.editReply(`✅ Awans **${officer}** został zapisany i opublikowany. ID: \`${row.id}\``);
+      const notice=await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
+      await interaction.editReply(notice);
       return;
     }
 
     if(interaction.isModalSubmit() && interaction.customId.startsWith("demotion_modal:")){
-      await interaction.deferReply({ephemeral:true});
+      await interaction.deferReply();
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
 
@@ -654,13 +638,13 @@ client.on("interactionCreate",async interaction=>{
         demoted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"DEMOTION",targetUserId);
-      await interaction.editReply(`✅ Degradacja **${officer}** została zapisana i opublikowana. ID: \`${row.id}\``);
+      const notice=await publishPersonnelChange(interaction,row,"DEMOTION",targetUserId);
+      await interaction.editReply(notice);
       return;
     }
 
     if(interaction.isModalSubmit() && interaction.customId.startsWith("dismissal_modal:")){
-      await interaction.deferReply({ephemeral:true});
+      await interaction.deferReply();
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
 
@@ -673,13 +657,13 @@ client.on("interactionCreate",async interaction=>{
         dismissed_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"DISMISSAL",targetUserId);
-      await interaction.editReply(`✅ Zwolnienie **${officer}** zostało zapisane i opublikowane. ID: \`${row.id}\``);
+      const notice=await publishPersonnelChange(interaction,row,"DISMISSAL",targetUserId);
+      await interaction.editReply(notice);
       return;
     }
 
     if(interaction.isModalSubmit() && interaction.customId.startsWith("resignation_modal:")){
-      await interaction.deferReply({ephemeral:true});
+      await interaction.deferReply();
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
 
@@ -693,8 +677,8 @@ client.on("interactionCreate",async interaction=>{
         submitted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"RESIGNATION",targetUserId);
-      await interaction.editReply(`✅ Wypowiedzenie **${officer}** zostało zapisane i opublikowane. ID: \`${row.id}\``);
+      const notice=await publishPersonnelChange(interaction,row,"RESIGNATION",targetUserId);
+      await interaction.editReply(notice);
       return;
     }
 
