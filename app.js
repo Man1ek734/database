@@ -351,7 +351,18 @@ function switchView(view){
   }
 }
 
-$$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
+const statsGrid=$(".stats-grid");
+const statsToggleBtn=$("#statsToggleBtn");
+if(statsGrid && statsToggleBtn){
+  statsGrid.classList.add("stats-collapsed");
+  statsToggleBtn.addEventListener("click",()=>{
+    const collapsed=statsGrid.classList.toggle("stats-collapsed");
+    statsToggleBtn.textContent=collapsed ? "Rozwiń ↓" : "Zwiń ↑";
+    statsToggleBtn.setAttribute("aria-expanded",String(!collapsed));
+  });
+}
+
+$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $$("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.jump)));
 $("#reportTypeFilter").addEventListener("change",()=>{if(state.forcedType==="ALL")renderReports()});
 $("#searchInput").addEventListener("input",e=>{
