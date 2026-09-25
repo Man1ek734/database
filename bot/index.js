@@ -238,7 +238,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
       {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
       {name:"🎖️ Poprzedni stopień",value:row.old_rank || "—",inline:true},
       {name:"⭐ Nowy stopień",value:row.new_rank || "—",inline:true},
-      {name:"⚖️ Decyzję wydał",value:row.promoted_by || cleanOfficerName(interaction),inline:false},
+      {name:"⚖️ Decyzję wydał",value:interaction.user.toString(),inline:false},
       {name:"📝 Powód",value:row.reason || "—",inline:false},
       {name:"📅 Data",value:row.decision_date || "—",inline:false}
     );
@@ -251,7 +251,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
       {name:"🪪 Numer odznaki",value:row.badge_number || "—",inline:true},
       {name:"🎖️ Poprzedni stopień",value:row.old_rank || "—",inline:true},
       {name:"⬇️ Nowy stopień",value:row.new_rank || "—",inline:true},
-      {name:"⚖️ Decyzję wydał",value:row.demoted_by || cleanOfficerName(interaction),inline:false},
+      {name:"⚖️ Decyzję wydał",value:interaction.user.toString(),inline:false},
       {name:"📝 Powód",value:row.reason || "—",inline:false}
     );
   }else if(type==="DISMISSAL"){
@@ -262,7 +262,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
       {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
       {name:"🪪 Numer odznaki",value:row.badge_number || "—",inline:true},
       {name:"🎖️ Stopień",value:row.rank || "—",inline:true},
-      {name:"⚖️ Decyzję wydał",value:row.dismissed_by || cleanOfficerName(interaction),inline:false},
+      {name:"⚖️ Decyzję wydał",value:interaction.user.toString(),inline:false},
       {name:"📝 Powód",value:row.reason || "—",inline:false}
     );
   }else{
@@ -275,7 +275,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
       {name:"🎖️ Stopień",value:row.rank || "—",inline:true},
       {name:"📅 Ostatni dzień służby",value:row.end_date || "—",inline:false},
       {name:"📝 Powód",value:row.reason || "—",inline:false},
-      {name:"✍️ Wprowadził",value:row.submitted_by || cleanOfficerName(interaction),inline:false}
+      {name:"✍️ Wprowadził",value:interaction.user.toString(),inline:false}
     );
   }
 
@@ -288,9 +288,9 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setTimestamp();
 
   return {
-    content:`<@${targetUserId}>`,
+    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId]}
+    allowedMentions:{users:[targetUserId,interaction.user.id]}
   };
 }
 
@@ -355,7 +355,7 @@ async function publishSuspensionLog(interaction,row,targetUserId){
       {name:"👤 Funkcjonariusz",value:row.subject || "—",inline:false},
       {name:"🎖️ Stopień",value:rank,inline:true},
       {name:"📅 Okres zawieszenia",value:period,inline:true},
-      {name:"⚖️ Decyzję wydał",value:decisionBy,inline:false},
+      {name:"⚖️ Decyzję wydał",value:interaction.user.toString(),inline:false},
       {name:"📝 Powód",value:reason || "—",inline:false}
     )
     .setColor(0xD98C3F)
@@ -363,9 +363,9 @@ async function publishSuspensionLog(interaction,row,targetUserId){
     .setTimestamp();
 
   return {
-    content:`<@${targetUserId}>`,
+    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId]}
+    allowedMentions:{users:[targetUserId,interaction.user.id]}
   };
 }
 
