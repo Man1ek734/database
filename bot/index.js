@@ -139,13 +139,18 @@ async function ensureTicketPanel(){
   if(!channel?.isTextBased()) return;
 
   const recent=await channel.messages.fetch({limit:50}).catch(()=>null);
-  const panelMessage=recent?.find(msg=>
+  const panelMessages=recent?.filter(msg=>
     msg.author?.id===client.user.id &&
     msg.embeds?.[0]?.title==="🎫 LSSD • SYSTEM TICKETÓW"
   );
 
-  if(panelMessage) await panelMessage.edit(ticketPanelPayload());
-  else await channel.send(ticketPanelPayload());
+  if(panelMessages?.size){
+    for(const msg of panelMessages.values()){
+      await msg.delete().catch(()=>null);
+    }
+  }
+
+  await channel.send(ticketPanelPayload());
 }
 
 const commands=[
