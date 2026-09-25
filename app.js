@@ -109,7 +109,7 @@ function renderReports(){
 
 function renderPromotions(){
   const q=state.query.toLowerCase().trim();
-  const list=state.promotions.filter(p=>!q || [p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.promoted_by].join(" ").toLowerCase().includes(q));
+  const list=state.promotions.filter(p=>!q || [p.officer_name,p.old_rank,p.new_rank,p.reason,p.promoted_by,p.decision_date].join(" ").toLowerCase().includes(q));
   $("#promotionsGrid").innerHTML=list.map(p=>`
     <article class="record-card">
       <div class="record-top">
@@ -120,8 +120,8 @@ function renderPromotions(){
       <div class="promotion-rank">${escapeHtml(p.old_rank)} <b>→</b> ${escapeHtml(p.new_rank)}</div>
       <p>${escapeHtml(p.reason||"Brak uzasadnienia.")}</p>
       <div class="record-meta">
-        <span>Odznaka: ${escapeHtml(p.badge_number||"—")}</span>
-        <span>Nadał: ${escapeHtml(p.promoted_by||"—")}</span>
+        <span>Decyzję wydał: ${escapeHtml(p.promoted_by||"—")}</span>
+        <span>Data: ${escapeHtml(p.decision_date||"—")}</span>
       </div>
     </article>`).join("") || '<div class="empty">Brak pasujących awansów.</div>';
 }
@@ -191,7 +191,7 @@ function renderSearchResults(){
   });
 
   state.promotions.forEach(p=>{
-    if(matchesQuery([p.officer_name,p.badge_number,p.old_rank,p.new_rank,p.reason,p.promoted_by,"awans"],q)){
+    if(matchesQuery([p.officer_name,p.old_rank,p.new_rank,p.reason,p.promoted_by,p.decision_date,"awans"],q)){
       results.push({
         type:"AWANS",
         title:p.officer_name,
