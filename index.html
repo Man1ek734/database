@@ -36,6 +36,7 @@
         <button class="nav-item" data-view="promotions"><span>11</span> Awanse</button>
         <button class="nav-item" data-view="demotions"><span>12</span> Degradacje</button>
         <button class="nav-item" data-view="dismissals"><span>13</span> Zwolnienia</button>
+        <button class="nav-item" data-view="resignations"><span>14</span> Wypowiedzenia</button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -209,6 +210,17 @@
         </div>
         <div id="dismissalsGrid" class="records-grid promotions-grid"></div>
       </section>
+
+      <section id="resignationsView" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow gold">PERSONNEL</p>
+            <h1>Rejestr wypowiedzeń</h1>
+            <p>Wypowiedzenia ze służby zapisane przez system Discord /database.</p>
+          </div>
+        </div>
+        <div id="resignationsGrid" class="records-grid promotions-grid"></div>
+      </section>
     </main>
   </div>
 
@@ -236,7 +248,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260925-9"></script>
-  <script src="auth.js?v=20260925-7"></script>
+  <script src="app.js?v=20260925-10"></script>
+  <script src="auth.js?v=20260925-8"></script>
 </body>
 </html>
