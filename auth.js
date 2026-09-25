@@ -251,20 +251,20 @@ renderSearchResults=function(){
 
 const LSSD_EDIT_FIELDS={
   reports:[
-    ["report_type","Typ raportu","select",["DTU","SERT","IAD","DEPUTY","WEAPON_LOSS","SUSPENSION"]],
+    ["report_type","Typ raportu","select",["DTU","SERT","IAD","DEPUTY","WEAPON_LOSS","SUSPENSION","PLUS","MINUS"]],
     ["title","Tytuł","text"],["subject","Dotyczy","text"],["badge_number","Numer odznaki","text"],["details","Treść raportu","textarea"]
   ],
   promotions:[
     ["officer_name","Funkcjonariusz","text"],["old_rank","Poprzedni stopień","text"],["new_rank","Nowy stopień","text"],["reason","Powód","textarea"]
   ],
   demotions:[
-    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["old_rank","Poprzednia ranga","text"],["new_rank","Nowa ranga","text"],["reason","Uzasadnienie","textarea"]
+    ["officer_name","Funkcjonariusz","text"],["old_rank","Poprzedni stopień","text"],["new_rank","Nowy stopień","text"],["reason","Powód","textarea"]
   ],
   dismissals:[
-    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["rank","Ranga","text"],["reason","Uzasadnienie","textarea"]
+    ["officer_name","Funkcjonariusz","text"],["rank","Stopień","text"],["reason","Powód","textarea"]
   ],
   resignations:[
-    ["officer_name","Imię i nazwisko","text"],["badge_number","Numer odznaki","text"],["rank","Ranga","text"],["end_date","Ostatni dzień służby","text"],["reason","Powód / treść wypowiedzenia","textarea"]
+    ["officer_name","Funkcjonariusz","text"],["rank","Stopień","text"],["end_date","Planowana data zakończenia służby","text"],["reason","Powód","textarea"]
   ]
 };
 
