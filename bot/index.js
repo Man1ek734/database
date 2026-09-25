@@ -136,11 +136,11 @@ function promotionModal(){
     .setTitle("Rejestracja awansu");
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
-    new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
-    new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień")),
-    new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień")),
-    new ActionRowBuilder().addComponents(input("reason","Powód / uzasadnienie",TextInputStyle.Paragraph,true,"Krótko opisz podstawę awansu"))
+    new ActionRowBuilder().addComponents(input("officer","Funkcjonariusz — Imię Nazwisko")),
+    new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień",TextInputStyle.Short,true,"np. Deputy Sheriff I")),
+    new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
+    new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód awansu")),
+    new ActionRowBuilder().addComponents(input("decision_date","Data",TextInputStyle.Short,true,"DD.MM.RRRR"))
   );
   return modal;
 }
@@ -212,25 +212,38 @@ async function publishPersonnelChange(interaction,row,type){
     type==="DISMISSAL" ? `**${row.officer_name}** zostaje zwolniony ze służby.` :
     `**${row.officer_name}** składa wypowiedzenie ze służby.`;
 
-  const fields=[{name:"Numer odznaki",value:row.badge_number || "—",inline:true}];
+  const fields=[];
 
-  if(type==="PROMOTION" || type==="DEMOTION"){
+  if(type==="PROMOTION"){
     fields.push(
-      {name:"Poprzedni stopień",value:row.old_rank || "—",inline:true},
-      {name:"Nowy stopień",value:row.new_rank || "—",inline:true}
+      {name:"Funkcjonariusz",value:row.officer_name || "—",inline:false},
+      {name:"Poprzedni stopień",value:row.old_rank || "—",inline:false},
+      {name:"Nowy stopień",value:row.new_rank || "—",inline:false},
+      {name:"Decyzję wydał",value:row.promoted_by || cleanOfficerName(interaction),inline:false},
+      {name:"Powód",value:row.reason || "—",inline:false},
+      {name:"Data",value:row.decision_date || "—",inline:false}
     );
   }else{
-    fields.push({name:"Stopień",value:row.rank || "—",inline:true});
-  }
+    fields.push({name:"Numer odznaki",value:row.badge_number || "—",inline:true});
 
-  if(type==="RESIGNATION" && row.end_date){
-    fields.push({name:"Ostatni dzień służby",value:row.end_date,inline:true});
-  }
+    if(type==="DEMOTION"){
+      fields.push(
+        {name:"Poprzedni stopień",value:row.old_rank || "—",inline:true},
+        {name:"Nowy stopień",value:row.new_rank || "—",inline:true}
+      );
+    }else{
+      fields.push({name:"Stopień",value:row.rank || "—",inline:true});
+    }
 
-  fields.push(
-    {name:"Uzasadnienie",value:row.reason || "—"},
-    {name:"Wprowadził",value:interaction.user.toString()}
-  );
+    if(type==="RESIGNATION" && row.end_date){
+      fields.push({name:"Ostatni dzień służby",value:row.end_date,inline:true});
+    }
+
+    fields.push(
+      {name:"Uzasadnienie",value:row.reason || "—"},
+      {name:"Wprowadził",value:interaction.user.toString()}
+    );
+  }
 
   const embed=new EmbedBuilder()
     .setTitle(title)
@@ -465,12 +478,13 @@ client.on("interactionCreate",async interaction=>{
       await interaction.deferReply({ephemeral:true});
 
       const row=await supabaseInsert("promotions",{
-        officer_name:interaction.fields.getTextInputValue("officer"),
-        badge_number:interaction.fields.getTextInputValue("badge"),
-        old_rank:interaction.fields.getTextInputValue("old_rank"),
-        new_rank:interaction.fields.getTextInputValue("new_rank"),
-        reason:interaction.fields.getTextInputValue("reason"),
-        promoted_by:interaction.user.globalName || interaction.user.username,
+        officer_name:interaction.fields.getTextInputValue("officer").trim(),
+        badge_number:null,
+        old_rank:interaction.fields.getTextInputValue("old_rank").trim(),
+        new_rank:interaction.fields.getTextInputValue("new_rank").trim(),
+        reason:interaction.fields.getTextInputValue("reason").trim(),
+        decision_date:interaction.fields.getTextInputValue("decision_date").trim(),
+        promoted_by:cleanOfficerName(interaction),
         promoted_by_discord_id:interaction.user.id
       });
 
