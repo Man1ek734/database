@@ -354,10 +354,9 @@ function switchView(view){
 const statsGrid=$(".stats-grid");
 const statsToggleBtn=$("#statsToggleBtn");
 if(statsGrid && statsToggleBtn){
-  statsGrid.classList.add("stats-collapsed");
   statsToggleBtn.addEventListener("click",()=>{
     const collapsed=statsGrid.classList.toggle("stats-collapsed");
-    statsToggleBtn.textContent=collapsed ? "Rozwiń ↓" : "Zwiń ↑";
+    statsToggleBtn.textContent=collapsed ? "Rozwiń" : "Zwiń";
     statsToggleBtn.setAttribute("aria-expanded",String(!collapsed));
   });
 }
