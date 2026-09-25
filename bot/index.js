@@ -159,7 +159,6 @@ function promotionModal(targetUserId){
   const modal=new ModalBuilder()
     .setCustomId(`promotion_modal:${targetUserId}`)
     .setTitle("Awans funkcjonariusza");
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień",TextInputStyle.Short,true,"np. Deputy Sheriff I")),
     new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
@@ -173,7 +172,6 @@ function demotionModal(targetUserId){
   const modal=new ModalBuilder()
     .setCustomId(`demotion_modal:${targetUserId}`)
     .setTitle("Degradacja funkcjonariusza");
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień",TextInputStyle.Short,true,"np. Sergeant I")),
     new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień",TextInputStyle.Short,true,"np. Corporal II")),
@@ -188,7 +186,6 @@ function plusMinusModal(type,targetUserId){
   const modal=new ModalBuilder()
     .setCustomId(`discipline_modal:${type}:${targetUserId}`)
     .setTitle(isPlus ? "Plus funkcjonariusza" : "Minus funkcjonariusza");
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(input("rank","Stopień",TextInputStyle.Short,true,"np. Deputy Sheriff I")),
     new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,isPlus ? "Podaj powód nadania plusa" : "Podaj powód nadania minusa")),
@@ -201,7 +198,6 @@ function dismissalModal(targetUserId){
   const modal=new ModalBuilder()
     .setCustomId(`dismissal_modal:${targetUserId}`)
     .setTitle("Zwolnienie funkcjonariusza");
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(input("rank","Stopień",TextInputStyle.Short,true,"np. Deputy Sheriff I")),
     new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód zwolnienia")),
@@ -214,7 +210,6 @@ function resignationModal(targetUserId){
   const modal=new ModalBuilder()
     .setCustomId(`resignation_modal:${targetUserId}`)
     .setTitle("Wypowiedzenie ze służby");
-
   modal.addComponents(
     new ActionRowBuilder().addComponents(input("rank","Stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
     new ActionRowBuilder().addComponents(input("submitted_date","Data złożenia wypowiedzenia",TextInputStyle.Short,true,"DD.MM.RRRR")),
@@ -312,11 +307,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setTimestamp();
 
   const ping=personnelPingPayload(targetUserId,interaction.user.id);
-  return {
-    content:ping.content,
-    embeds:[embed],
-    allowedMentions:ping.allowedMentions
-  };
+  return {content:ping.content,embeds:[embed],allowedMentions:ping.allowedMentions};
 }
 
 async function publishDisciplineLog(interaction,row,type,targetUserId){
@@ -342,11 +333,7 @@ async function publishDisciplineLog(interaction,row,type,targetUserId){
     .setTimestamp();
 
   const ping=personnelPingPayload(targetUserId,interaction.user.id);
-  return {
-    content:ping.content,
-    embeds:[embed],
-    allowedMentions:ping.allowedMentions
-  };
+  return {content:ping.content,embeds:[embed],allowedMentions:ping.allowedMentions};
 }
 
 async function publishPromotion(interaction,row){
