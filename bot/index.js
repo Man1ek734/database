@@ -224,6 +224,14 @@ async function getTargetOfficerName(interaction,targetUserId){
     .trim();
 }
 
+function personnelPingPayload(targetUserId,actorUserId){
+  const users=[...new Set([String(targetUserId),String(actorUserId)])];
+  return {
+    content:users.map(id=>`<@${id}>`).join(" • "),
+    allowedMentions:{users}
+  };
+}
+
 async function publishPersonnelChange(interaction,row,type,targetUserId){
   let title="LSSD • PERSONNEL NOTICE";
   let description=`<@${targetUserId}> — aktualizacja statusu służbowego.`;
@@ -287,10 +295,11 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
+  const ping=personnelPingPayload(targetUserId,interaction.user.id);
   return {
-    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
+    content:ping.content,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId,interaction.user.id]}
+    allowedMentions:ping.allowedMentions
   };
 }
 
@@ -362,10 +371,11 @@ async function publishSuspensionLog(interaction,row,targetUserId){
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
+  const ping=personnelPingPayload(targetUserId,interaction.user.id);
   return {
-    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
+    content:ping.content,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId,interaction.user.id]}
+    allowedMentions:ping.allowedMentions
   };
 }
 
