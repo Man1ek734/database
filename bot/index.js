@@ -288,9 +288,8 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setTimestamp();
 
   return {
-    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId,interaction.user.id]}
+    allowedMentions:{parse:[]}
   };
 }
 
@@ -363,9 +362,8 @@ async function publishSuspensionLog(interaction,row,targetUserId){
     .setTimestamp();
 
   return {
-    content:`<@${targetUserId}> • <@${interaction.user.id}>`,
     embeds:[embed],
-    allowedMentions:{users:[targetUserId,interaction.user.id]}
+    allowedMentions:{parse:[]}
   };
 }
 
