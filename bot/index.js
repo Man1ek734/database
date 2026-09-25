@@ -25,7 +25,11 @@ for(const key of required){
   if(!process.env[key]) throw new Error(`Brak zmiennej środowiskowej: ${key}`);
 }
 
-const client=new Client({intents:[GatewayIntentBits.Guilds]});
+const gatewayIntents=[GatewayIntentBits.Guilds];
+if(process.env.ENABLE_MEMBER_WELCOME==="true"){
+  gatewayIntents.push(GatewayIntentBits.GuildMembers);
+}
+const client=new Client({intents:gatewayIntents});
 
 const commands=[
   new SlashCommandBuilder().setName("database").setDescription("Otwórz główne menu LSSD Records Database"),
@@ -435,6 +439,34 @@ async function publishWeaponLossLog(interaction,row){
 
   await channel.send({embeds:[embed]});
 }
+
+client.on("guildMemberAdd",async member=>{
+  try{
+    const channelId=process.env.WELCOME_CHANNEL_ID;
+    if(!channelId) return;
+
+    const channel=await member.guild.channels.fetch(channelId).catch(()=>null);
+    if(!channel?.isTextBased()) return;
+
+    const embed=new EmbedBuilder()
+      .setTitle("⭐ LOS SANTOS SHERIFF’S DEPARTMENT")
+      .setDescription(
+        `Witaj ${member.user.toString()}.\n\n` +
+        "Od dziś reprezentujesz Los Santos Sheriff’s Department.\n" +
+        "Noś odznakę z honorem i służ mieszkańcom hrabstwa.\n\n" +
+        "Service • Integrity • Community"
+      )
+      .setColor(0xC9AA51)
+      .setFooter({text:"Los Santos Sheriff's Department"});
+
+    await channel.send({
+      embeds:[embed],
+      allowedMentions:{users:[member.user.id]}
+    });
+  }catch(error){
+    console.error("Welcome message error:",error);
+  }
+});
 
 client.once("ready",async()=>{
   const rest=new REST({version:"10"}).setToken(process.env.DISCORD_TOKEN);
