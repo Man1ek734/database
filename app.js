@@ -295,6 +295,8 @@ function switchView(view){
       "reports-weapon-loss":["Utrata broni","WEAPON_LOSS"],
       "reports-suspensions":["Zawieszenia","SUSPENSION"],
       "reports-plus":["Plusy","PLUS"],
+      "reports-minus":["Minusy","MINUS"],
+      "reports-plus":["Plusy","PLUS"],
       "reports-minus":["Minusy","MINUS"]
     };
     const [label,type]=map[view]||map["reports-all"];
