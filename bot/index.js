@@ -454,7 +454,7 @@ async function publishPersonnelChange(interaction,row,type,targetUserId){
     .setDescription(description)
     .addFields(fields)
     .setColor(color)
-    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setFooter({text:"Los Santos Sheriff's Department • Station 28 — Davis Avenue"})
     .setTimestamp();
 
   const ping=personnelPingPayload(targetUserId,interaction.user.id);
@@ -480,7 +480,7 @@ async function publishDisciplineLog(interaction,row,type,targetUserId){
       {name:"Data",value:date,inline:false}
     )
     .setColor(isPlus ? 0x57F287 : 0xED4245)
-    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setFooter({text:"Los Santos Sheriff's Department • Station 28 — Davis Avenue"})
     .setTimestamp();
 
   const ping=personnelPingPayload(targetUserId,interaction.user.id);
@@ -505,7 +505,7 @@ async function publishPromotion(interaction,row){
       {name:"Zatwierdził",value:interaction.user.toString()}
     )
     .setColor(0xC9AA51)
-    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setFooter({text:"Los Santos Sheriff's Department • Station 28 — Davis Avenue"})
     .setTimestamp();
 
   await channel.send({embeds:[embed]});
@@ -549,7 +549,7 @@ async function publishVacationLog(interaction,row){
       {name:"📝 Powód",value:reason || "—",inline:false}
     )
     .setColor(0xC9AA51)
-    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setFooter({text:"Los Santos Sheriff's Department • Station 28 — Davis Avenue"})
     .setTimestamp();
 
   return {
@@ -578,7 +578,7 @@ async function publishSuspensionLog(interaction,row,targetUserId){
       {name:"📝 Powód",value:reason || "—",inline:false}
     )
     .setColor(0xD98C3F)
-    .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
+    .setFooter({text:"Los Santos Sheriff's Department • Station 28 — Davis Avenue"})
     .setTimestamp();
 
   const ping=personnelPingPayload(targetUserId,interaction.user.id);
