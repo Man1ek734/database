@@ -10,6 +10,7 @@ import {
   Routes,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
+  UserSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle
 } from "discord.js";
@@ -40,10 +41,14 @@ const commands=[
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
   new SlashCommandBuilder().setName("zawias").setDescription("Zarejestruj zawieszenie funkcjonariusza")
     .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba, którą zawieszasz").setRequired(true)),
-  new SlashCommandBuilder().setName("awans").setDescription("Zarejestruj awans funkcjonariusza"),
-  new SlashCommandBuilder().setName("degrad").setDescription("Zarejestruj degradację funkcjonariusza"),
-  new SlashCommandBuilder().setName("zwolnienia").setDescription("Zarejestruj zwolnienie funkcjonariusza"),
+  new SlashCommandBuilder().setName("awans").setDescription("Zarejestruj awans funkcjonariusza")
+    .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba, która otrzymuje awans").setRequired(true)),
+  new SlashCommandBuilder().setName("degrad").setDescription("Zarejestruj degradację funkcjonariusza")
+    .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba, która otrzymuje degradację").setRequired(true)),
+  new SlashCommandBuilder().setName("zwolnienia").setDescription("Zarejestruj zwolnienie funkcjonariusza")
+    .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba zwalniana ze służby").setRequired(true)),
   new SlashCommandBuilder().setName("wypowiedzenia").setDescription("Zarejestruj wypowiedzenie funkcjonariusza")
+    .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba składająca wypowiedzenie").setRequired(true))
 ];
 
 async function supabaseWrite(action,table,payload,id=null){
@@ -146,13 +151,12 @@ function suspensionModal(targetUserId){
   return modal;
 }
 
-function promotionModal(){
+function promotionModal(targetUserId){
   const modal=new ModalBuilder()
-    .setCustomId("promotion_modal")
+    .setCustomId(`promotion_modal:${targetUserId}`)
     .setTitle("Rejestracja awansu");
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("officer","Funkcjonariusz — Imię Nazwisko")),
     new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień",TextInputStyle.Short,true,"np. Deputy Sheriff I")),
     new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień",TextInputStyle.Short,true,"np. Deputy Sheriff II")),
     new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód awansu")),
@@ -161,13 +165,12 @@ function promotionModal(){
   return modal;
 }
 
-function demotionModal(){
+function demotionModal(targetUserId){
   const modal=new ModalBuilder()
-    .setCustomId("demotion_modal")
+    .setCustomId(`demotion_modal:${targetUserId}`)
     .setTitle("Rejestracja degradacji");
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
     new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
     new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień")),
     new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień")),
@@ -176,13 +179,12 @@ function demotionModal(){
   return modal;
 }
 
-function dismissalModal(){
+function dismissalModal(targetUserId){
   const modal=new ModalBuilder()
-    .setCustomId("dismissal_modal")
+    .setCustomId(`dismissal_modal:${targetUserId}`)
     .setTitle("Rejestracja zwolnienia");
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
     new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
     new ActionRowBuilder().addComponents(input("rank","Stopień w momencie zwolnienia")),
     new ActionRowBuilder().addComponents(input("reason","Powód / uzasadnienie",TextInputStyle.Paragraph,true,"Krótko opisz podstawę zwolnienia"))
@@ -190,13 +192,12 @@ function dismissalModal(){
   return modal;
 }
 
-function resignationModal(){
+function resignationModal(targetUserId){
   const modal=new ModalBuilder()
-    .setCustomId("resignation_modal")
+    .setCustomId(`resignation_modal:${targetUserId}`)
     .setTitle("Rejestracja wypowiedzenia");
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("officer","Imię i nazwisko funkcjonariusza")),
     new ActionRowBuilder().addComponents(input("badge","Numer odznaki")),
     new ActionRowBuilder().addComponents(input("rank","Aktualny stopień")),
     new ActionRowBuilder().addComponents(input("end_date","Ostatni dzień służby",TextInputStyle.Short,false,"np. 30.09.2026")),
@@ -205,7 +206,25 @@ function resignationModal(){
   return modal;
 }
 
-async function publishPersonnelChange(interaction,row,type){
+function personnelTargetMenu(type){
+  return new UserSelectMenuBuilder()
+    .setCustomId(`personnel_target:${type}`)
+    .setPlaceholder("Wybierz funkcjonariusza")
+    .setMinValues(1)
+    .setMaxValues(1);
+}
+
+async function getTargetOfficerName(interaction,targetUserId){
+  const targetMember=await interaction.guild?.members.fetch(targetUserId).catch(()=>null);
+  const targetUser=targetMember?.user || await client.users.fetch(targetUserId).catch(()=>null);
+  const raw=targetMember?.displayName || targetUser?.globalName || targetUser?.username || "Nieznany funkcjonariusz";
+  return String(raw)
+    .replace(/^\s*\[[^\]]+\]\s*/,"")
+    .replace(/^\s*\([^\)]+\)\s*/,"")
+    .trim();
+}
+
+async function publishPersonnelChange(interaction,row,type,targetUserId){
   const channelId =
     type==="PROMOTION" ? process.env.PROMOTION_CHANNEL_ID :
     type==="DEMOTION" ? (process.env.DEMOTION_CHANNEL_ID || process.env.PROMOTION_CHANNEL_ID) :
@@ -216,48 +235,57 @@ async function publishPersonnelChange(interaction,row,type){
   const channel=await client.channels.fetch(channelId).catch(()=>null);
   if(!channel?.isTextBased()) return;
 
-  const title =
-    type==="PROMOTION" ? "LSSD • PROMOTION NOTICE" :
-    type==="DEMOTION" ? "LSSD • DEMOTION NOTICE" :
-    type==="DISMISSAL" ? "LSSD • DISMISSAL NOTICE" :
-    "LSSD • RESIGNATION NOTICE";
-
-  const description =
-    type==="PROMOTION" ? `**${row.officer_name}** otrzymuje awans.` :
-    type==="DEMOTION" ? `**${row.officer_name}** otrzymuje degradację.` :
-    type==="DISMISSAL" ? `**${row.officer_name}** zostaje zwolniony ze służby.` :
-    `**${row.officer_name}** składa wypowiedzenie ze służby.`;
-
+  let title="LSSD • PERSONNEL NOTICE";
+  let description=`<@${targetUserId}> — aktualizacja statusu służbowego.`;
+  let color=0xC9AA51;
   const fields=[];
 
   if(type==="PROMOTION"){
+    title="🎉 AWANS FUNKCJONARIUSZA";
+    description=`<@${targetUserId}> otrzymuje awans.`;
+    color=0xC9AA51;
     fields.push(
-      {name:"Funkcjonariusz",value:row.officer_name || "—",inline:false},
-      {name:"Poprzedni stopień",value:row.old_rank || "—",inline:false},
-      {name:"Nowy stopień",value:row.new_rank || "—",inline:false},
-      {name:"Decyzję wydał",value:row.promoted_by || cleanOfficerName(interaction),inline:false},
-      {name:"Powód",value:row.reason || "—",inline:false},
-      {name:"Data",value:row.decision_date || "—",inline:false}
+      {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
+      {name:"🎖️ Poprzedni stopień",value:row.old_rank || "—",inline:true},
+      {name:"⭐ Nowy stopień",value:row.new_rank || "—",inline:true},
+      {name:"⚖️ Decyzję wydał",value:row.promoted_by || cleanOfficerName(interaction),inline:false},
+      {name:"📝 Powód",value:row.reason || "—",inline:false},
+      {name:"📅 Data",value:row.decision_date || "—",inline:false}
+    );
+  }else if(type==="DEMOTION"){
+    title="⬇️ DEGRADACJA FUNKCJONARIUSZA";
+    description=`<@${targetUserId}> otrzymuje degradację.`;
+    color=0xD98C3F;
+    fields.push(
+      {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
+      {name:"🪪 Numer odznaki",value:row.badge_number || "—",inline:true},
+      {name:"🎖️ Poprzedni stopień",value:row.old_rank || "—",inline:true},
+      {name:"⬇️ Nowy stopień",value:row.new_rank || "—",inline:true},
+      {name:"⚖️ Decyzję wydał",value:row.demoted_by || cleanOfficerName(interaction),inline:false},
+      {name:"📝 Powód",value:row.reason || "—",inline:false}
+    );
+  }else if(type==="DISMISSAL"){
+    title="⛔ ZWOLNIENIE FUNKCJONARIUSZA";
+    description=`<@${targetUserId}> zostaje zwolniony(a) ze służby.`;
+    color=0xB84A55;
+    fields.push(
+      {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
+      {name:"🪪 Numer odznaki",value:row.badge_number || "—",inline:true},
+      {name:"🎖️ Stopień",value:row.rank || "—",inline:true},
+      {name:"⚖️ Decyzję wydał",value:row.dismissed_by || cleanOfficerName(interaction),inline:false},
+      {name:"📝 Powód",value:row.reason || "—",inline:false}
     );
   }else{
-    fields.push({name:"Numer odznaki",value:row.badge_number || "—",inline:true});
-
-    if(type==="DEMOTION"){
-      fields.push(
-        {name:"Poprzedni stopień",value:row.old_rank || "—",inline:true},
-        {name:"Nowy stopień",value:row.new_rank || "—",inline:true}
-      );
-    }else{
-      fields.push({name:"Stopień",value:row.rank || "—",inline:true});
-    }
-
-    if(type==="RESIGNATION" && row.end_date){
-      fields.push({name:"Ostatni dzień służby",value:row.end_date,inline:true});
-    }
-
+    title="📄 WYPOWIEDZENIE ZE SŁUŻBY";
+    description=`<@${targetUserId}> składa wypowiedzenie ze służby.`;
+    color=0x7A8AA0;
     fields.push(
-      {name:"Uzasadnienie",value:row.reason || "—"},
-      {name:"Wprowadził",value:interaction.user.toString()}
+      {name:"👤 Funkcjonariusz",value:row.officer_name || "—",inline:false},
+      {name:"🪪 Numer odznaki",value:row.badge_number || "—",inline:true},
+      {name:"🎖️ Stopień",value:row.rank || "—",inline:true},
+      {name:"📅 Ostatni dzień służby",value:row.end_date || "—",inline:false},
+      {name:"📝 Powód",value:row.reason || "—",inline:false},
+      {name:"✍️ Wprowadził",value:row.submitted_by || cleanOfficerName(interaction),inline:false}
     );
   }
 
@@ -265,11 +293,15 @@ async function publishPersonnelChange(interaction,row,type){
     .setTitle(title)
     .setDescription(description)
     .addFields(fields)
-    .setColor(type==="PROMOTION" ? 0xC9AA51 : type==="DEMOTION" ? 0xD98C3F : type==="DISMISSAL" ? 0xB84A55 : 0x7A8AA0)
+    .setColor(color)
     .setFooter({text:"Los Santos Sheriff's Department • Station 11 — Davis Avenue"})
     .setTimestamp();
 
-  await channel.send({embeds:[embed]});
+  await channel.send({
+    content:`<@${targetUserId}>`,
+    embeds:[embed],
+    allowedMentions:{users:[targetUserId]}
+  });
 }
 
 async function publishPromotion(interaction,row){
@@ -400,22 +432,26 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(interaction.isChatInputCommand() && interaction.commandName==="awans"){
-      await interaction.showModal(promotionModal());
+      const target=interaction.options.getUser("funkcjonariusz",true);
+      await interaction.showModal(promotionModal(target.id));
       return;
     }
 
     if(interaction.isChatInputCommand() && interaction.commandName==="degrad"){
-      await interaction.showModal(demotionModal());
+      const target=interaction.options.getUser("funkcjonariusz",true);
+      await interaction.showModal(demotionModal(target.id));
       return;
     }
 
     if(interaction.isChatInputCommand() && interaction.commandName==="zwolnienia"){
-      await interaction.showModal(dismissalModal());
+      const target=interaction.options.getUser("funkcjonariusz",true);
+      await interaction.showModal(dismissalModal(target.id));
       return;
     }
 
     if(interaction.isChatInputCommand() && interaction.commandName==="wypowiedzenia"){
-      await interaction.showModal(resignationModal());
+      const target=interaction.options.getUser("funkcjonariusz",true);
+      await interaction.showModal(resignationModal(target.id));
       return;
     }
 
@@ -437,6 +473,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport zastępcy",value:"DEPUTY",description:"Raport patrolowy zastępcy"},
           {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
+          {label:"Zawieszenie",value:"SUSPENSION",description:"Rejestracja zawieszenia funkcjonariusza"},
           {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
           {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
           {label:"Zwolnienie",value:"DISMISSAL",description:"Rejestracja zakończenia służby"},
@@ -453,13 +490,30 @@ client.on("interactionCreate",async interaction=>{
 
     if(interaction.isStringSelectMenu() && interaction.customId==="database_type"){
       const type=interaction.values[0];
-      if(type==="PROMOTION") await interaction.showModal(promotionModal());
-      else if(type==="DEMOTION") await interaction.showModal(demotionModal());
-      else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
-      else if(type==="RESIGNATION") await interaction.showModal(resignationModal());
-      else if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+
+      if(["SUSPENSION","PROMOTION","DEMOTION","DISMISSAL","RESIGNATION"].includes(type)){
+        await interaction.update({
+          content:"**LSSD Records Database**\nWybierz funkcjonariusza:",
+          components:[new ActionRowBuilder().addComponents(personnelTargetMenu(type))]
+        });
+        return;
+      }
+
+      if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
       else if(type==="DEPUTY") await interaction.showModal(deputyReportModal());
       else await interaction.showModal(reportModal(type));
+      return;
+    }
+
+    if(interaction.isUserSelectMenu() && interaction.customId.startsWith("personnel_target:")){
+      const type=interaction.customId.split(":")[1];
+      const targetUserId=interaction.values[0];
+
+      if(type==="SUSPENSION") await interaction.showModal(suspensionModal(targetUserId));
+      else if(type==="PROMOTION") await interaction.showModal(promotionModal(targetUserId));
+      else if(type==="DEMOTION") await interaction.showModal(demotionModal(targetUserId));
+      else if(type==="DISMISSAL") await interaction.showModal(dismissalModal(targetUserId));
+      else if(type==="RESIGNATION") await interaction.showModal(resignationModal(targetUserId));
       return;
     }
 
@@ -564,11 +618,13 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    if(interaction.isModalSubmit() && interaction.customId==="promotion_modal"){
+    if(interaction.isModalSubmit() && interaction.customId.startsWith("promotion_modal:")){
       await interaction.deferReply({ephemeral:true});
+      const targetUserId=interaction.customId.split(":")[1];
+      const officer=await getTargetOfficerName(interaction,targetUserId);
 
       const row=await supabaseInsert("promotions",{
-        officer_name:interaction.fields.getTextInputValue("officer").trim(),
+        officer_name:officer,
         badge_number:null,
         old_rank:interaction.fields.getTextInputValue("old_rank").trim(),
         new_rank:interaction.fields.getTextInputValue("new_rank").trim(),
@@ -578,61 +634,70 @@ client.on("interactionCreate",async interaction=>{
         promoted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"PROMOTION");
-      await interaction.editReply(`✅ Awans został zapisany w bazie i opublikowany na Discordzie. ID: \`${row.id}\``);
+      await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
+      await interaction.editReply(`✅ Awans **${officer}** został zapisany i opublikowany. ID: \`${row.id}\``);
       return;
     }
 
-    if(interaction.isModalSubmit() && interaction.customId==="demotion_modal"){
+    if(interaction.isModalSubmit() && interaction.customId.startsWith("demotion_modal:")){
       await interaction.deferReply({ephemeral:true});
+      const targetUserId=interaction.customId.split(":")[1];
+      const officer=await getTargetOfficerName(interaction,targetUserId);
 
       const row=await supabaseInsert("demotions",{
-        officer_name:interaction.fields.getTextInputValue("officer"),
-        badge_number:interaction.fields.getTextInputValue("badge"),
-        old_rank:interaction.fields.getTextInputValue("old_rank"),
-        new_rank:interaction.fields.getTextInputValue("new_rank"),
-        reason:interaction.fields.getTextInputValue("reason"),
-        demoted_by:interaction.user.globalName || interaction.user.username,
+        officer_name:officer,
+        badge_number:interaction.fields.getTextInputValue("badge").trim(),
+        old_rank:interaction.fields.getTextInputValue("old_rank").trim(),
+        new_rank:interaction.fields.getTextInputValue("new_rank").trim(),
+        reason:interaction.fields.getTextInputValue("reason").trim(),
+        demoted_by:cleanOfficerName(interaction),
         demoted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"DEMOTION");
-      await interaction.editReply(`✅ Degradacja została zapisana w bazie i opublikowana na Discordzie. ID: \`${row.id}\``);
+      await publishPersonnelChange(interaction,row,"DEMOTION",targetUserId);
+      await interaction.editReply(`✅ Degradacja **${officer}** została zapisana i opublikowana. ID: \`${row.id}\``);
       return;
     }
 
-    if(interaction.isModalSubmit() && interaction.customId==="dismissal_modal"){
+    if(interaction.isModalSubmit() && interaction.customId.startsWith("dismissal_modal:")){
       await interaction.deferReply({ephemeral:true});
+      const targetUserId=interaction.customId.split(":")[1];
+      const officer=await getTargetOfficerName(interaction,targetUserId);
 
       const row=await supabaseInsert("dismissals",{
-        officer_name:interaction.fields.getTextInputValue("officer"),
-        badge_number:interaction.fields.getTextInputValue("badge"),
-        rank:interaction.fields.getTextInputValue("rank"),
-        reason:interaction.fields.getTextInputValue("reason"),
-        dismissed_by:interaction.user.globalName || interaction.user.username,
+        officer_name:officer,
+        badge_number:interaction.fields.getTextInputValue("badge").trim(),
+        rank:interaction.fields.getTextInputValue("rank").trim(),
+        reason:interaction.fields.getTextInputValue("reason").trim(),
+        dismissed_by:cleanOfficerName(interaction),
         dismissed_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"DISMISSAL");
-      await interaction.editReply(`✅ Zwolnienie zostało zapisane w bazie i opublikowane na Discordzie. ID: \`${row.id}\``);
+      await publishPersonnelChange(interaction,row,"DISMISSAL",targetUserId);
+      await interaction.editReply(`✅ Zwolnienie **${officer}** zostało zapisane i opublikowane. ID: \`${row.id}\``);
+      return;
     }
 
-    if(interaction.isModalSubmit() && interaction.customId==="resignation_modal"){
+    if(interaction.isModalSubmit() && interaction.customId.startsWith("resignation_modal:")){
       await interaction.deferReply({ephemeral:true});
+      const targetUserId=interaction.customId.split(":")[1];
+      const officer=await getTargetOfficerName(interaction,targetUserId);
 
       const row=await supabaseInsert("resignations",{
-        officer_name:interaction.fields.getTextInputValue("officer"),
-        badge_number:interaction.fields.getTextInputValue("badge"),
-        rank:interaction.fields.getTextInputValue("rank"),
-        end_date:interaction.fields.getTextInputValue("end_date") || null,
-        reason:interaction.fields.getTextInputValue("reason"),
-        submitted_by:interaction.user.globalName || interaction.user.username,
+        officer_name:officer,
+        badge_number:interaction.fields.getTextInputValue("badge").trim(),
+        rank:interaction.fields.getTextInputValue("rank").trim(),
+        end_date:interaction.fields.getTextInputValue("end_date").trim() || null,
+        reason:interaction.fields.getTextInputValue("reason").trim(),
+        submitted_by:cleanOfficerName(interaction),
         submitted_by_discord_id:interaction.user.id
       });
 
-      await publishPersonnelChange(interaction,row,"RESIGNATION");
-      await interaction.editReply(`✅ Wypowiedzenie zostało zapisane w bazie i opublikowane na Discordzie. ID: \`${row.id}\``);
+      await publishPersonnelChange(interaction,row,"RESIGNATION",targetUserId);
+      await interaction.editReply(`✅ Wypowiedzenie **${officer}** zostało zapisane i opublikowane. ID: \`${row.id}\``);
+      return;
     }
+
   }catch(error){
     console.error(error);
     const msg="❌ Nie udało się zapisać wpisu. Sprawdź konfigurację bota i Supabase.";
