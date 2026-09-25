@@ -43,6 +43,14 @@ const TICKET_TYPES={
 };
 
 const TICKET_STAFF_RANKS=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+const AUTO_JOIN_ROLE_NAMES=[
+  "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Los Santos Sheriff Department ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
+  "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Szkolenia ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
+  "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Akta ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
+  "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Obywatele ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
+  "» |・Obywatel"
+];
+
 
 function normalizeTicketRole(value=""){
   return String(value)
@@ -607,6 +615,29 @@ async function publishWeaponLossLog(interaction,row){
 
 client.on("guildMemberAdd",async member=>{
   try{
+    await member.guild.roles.fetch().catch(()=>null);
+
+    const me=member.guild.members.me;
+    const botHighestPosition=me?.roles?.highest?.position ?? -1;
+
+    for(const roleName of AUTO_JOIN_ROLE_NAMES){
+      const role=member.guild.roles.cache.find(r=>r.name===roleName);
+
+      if(!role){
+        console.warn(`Auto-role not found: ${roleName}`);
+        continue;
+      }
+
+      if(role.managed || role.position>=botHighestPosition){
+        console.warn(`Cannot assign auto-role (move bot role above it): ${role.name}`);
+        continue;
+      }
+
+      await member.roles.add(role,"Automatyczne role po dołączeniu do serwera").catch(error=>{
+        console.error(`Auto-role error for ${role.name}:`,error);
+      });
+    }
+
     const channelId=process.env.WELCOME_CHANNEL_ID;
     if(!channelId) return;
 
@@ -629,7 +660,7 @@ client.on("guildMemberAdd",async member=>{
       allowedMentions:{users:[member.user.id]}
     });
   }catch(error){
-    console.error("Welcome message error:",error);
+    console.error("Member join handler error:",error);
   }
 });
 
