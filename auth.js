@@ -251,7 +251,7 @@ renderSearchResults=function(){
 
 const LSSD_EDIT_FIELDS={
   reports:[
-    ["report_type","Typ raportu","select",["DTU","SERT","IAD","DEPUTY","WEAPON_LOSS"]],
+    ["report_type","Typ raportu","select",["DTU","SERT","IAD","DEPUTY","WEAPON_LOSS","SUSPENSION"]],
     ["title","Tytuł","text"],["subject","Dotyczy","text"],["badge_number","Numer odznaki","text"],["details","Treść raportu","textarea"]
   ],
   promotions:[
