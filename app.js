@@ -361,7 +361,7 @@ if(statsGrid && statsToggleBtn){
   });
 }
 
-$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
+$$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $$("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.jump)));
 $("#reportTypeFilter").addEventListener("change",()=>{if(state.forcedType==="ALL")renderReports()});
 $("#searchInput").addEventListener("input",e=>{
