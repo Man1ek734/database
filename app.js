@@ -11,7 +11,7 @@ const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeSearch=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
-const reportTypeLabel=t=>t==="WEAPON_LOSS"?"UTRATA BRONI":t==="DEPUTY"?"RAPORT ZASTĘPCY":t==="SUSPENSION"?"ZAWIESZENIE":t;
+const reportTypeLabel=t=>t==="WEAPON_LOSS"?"UTRATA BRONI":t==="DEPUTY"?"RAPORT ZASTĘPCY":t==="SUSPENSION"?"ZAWIESZENIE":t==="PLUS"?"PLUS":t==="MINUS"?"MINUS":t;
 const matchesQuery=(values,q)=>{
   if(!q) return true;
   const hay=normalizeSearch(values.join(" "));
@@ -293,7 +293,9 @@ function switchView(view){
       "reports-iad":["Raporty IAD","IAD"],
       "reports-deputy":["Raporty zastępcy","DEPUTY"],
       "reports-weapon-loss":["Utrata broni","WEAPON_LOSS"],
-      "reports-suspensions":["Zawieszenia","SUSPENSION"]
+      "reports-suspensions":["Zawieszenia","SUSPENSION"],
+      "reports-plus":["Plusy","PLUS"],
+      "reports-minus":["Minusy","MINUS"]
     };
     const [label,type]=map[view]||map["reports-all"];
     $("#pageTitle").textContent=label;
