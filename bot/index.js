@@ -101,7 +101,7 @@ function deputyReportModal(){
     new ActionRowBuilder().addComponents(input("report_date","Data raportu",TextInputStyle.Short,true,"np. 25.09.2026")),
     new ActionRowBuilder().addComponents(input("officer","Od — imię i nazwisko",TextInputStyle.Short,true,"np. Tomas Chase")),
     new ActionRowBuilder().addComponents(input("badge","Numer odznaki",TextInputStyle.Short,true,"np. 11404")),
-    new ActionRowBuilder().addComponents(input("patrol_description","Opis patrolu",TextInputStyle.Paragraph,true,"Opisz przebieg patrolu...")),
+    new ActionRowBuilder().addComponents(input("patrol_description","Przebieg patrolu",TextInputStyle.Paragraph,true,"Opisz przebieg patrolu...")),
     new ActionRowBuilder().addComponents(input("signature","Podpis — stopień + odznaka",TextInputStyle.Short,true,"np. Commander 11404"))
   );
   return modal;
@@ -420,7 +420,7 @@ client.on("interactionCreate",async interaction=>{
         title:"Raport zastępcy",
         subject:`Od: ${officer} ${badge}`,
         badge_number:badge,
-        details:`Data raportu: ${reportDate}\n\nOpis patrolu:\n${patrolDescription}\n\nZ wyrazami szacunku\n${officer}\n${signature}`,
+        details:`Data raportu: ${reportDate}\n\nPrzebieg patrolu:\n${patrolDescription}\n\nZ wyrazami szacunku\n${officer}\n${signature}`,
         author_discord_id:interaction.user.id,
         author_discord_name:officer
       });
