@@ -74,6 +74,7 @@ function renderAll(){
   renderPromotions();
   renderDemotions();
   renderDismissals();
+  renderResignations();
   renderSearchResults();
 }
 
@@ -162,6 +163,25 @@ function renderDismissals(){
         <span>Data zwolnienia: ${escapeHtml(p.dismissal_date||"—")}</span>
       </div>
     </article>`).join("") || '<div class="empty">Brak zwolnień.</div>';
+}
+
+function renderResignations(){
+  const q=state.query.toLowerCase().trim();
+  const list=state.resignations.filter(p=>!q || [p.officer_name,p.rank,p.reason,p.submitted_date,p.end_date].join(" ").toLowerCase().includes(q));
+  $("#resignationsGrid").innerHTML=list.map(p=>`
+    <article class="record-card">
+      <div class="record-top">
+        <div><span class="type-badge">RESIGNATION</span></div>
+        <small class="muted">${fmt(p.created_at)}</small>
+      </div>
+      <h3>${escapeHtml(p.officer_name)}</h3>
+      <div class="promotion-rank">${escapeHtml(p.rank||"—")} <b>→</b> WYPOWIEDZENIE</div>
+      <p>${escapeHtml(p.reason||"Brak powodu.")}</p>
+      <div class="record-meta">
+        <span>Data złożenia: ${escapeHtml(p.submitted_date||"—")}</span>
+        <span>Planowane zakończenie: ${escapeHtml(p.end_date||"—")}</span>
+      </div>
+    </article>`).join("") || '<div class="empty">Brak wypowiedzeń.</div>';
 }
 
 function renderSearchResults(){
@@ -284,6 +304,11 @@ function switchView(view){
     $("#pageTitle").textContent="Zwolnienia";
     state.forcedType="ALL";
     renderDismissals();
+  }else if(view==="resignations"){
+    $("#resignationsView").classList.add("active-view");
+    $("#pageTitle").textContent="Wypowiedzenia";
+    state.forcedType="ALL";
+    renderResignations();
   }else{
     $("#reportsView").classList.add("active-view");
     const map={
@@ -326,6 +351,7 @@ $("#searchInput").addEventListener("input",e=>{
   renderPromotions();
   renderDemotions();
   renderDismissals();
+  renderResignations();
   renderSearchResults();
 });
 
