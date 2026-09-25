@@ -88,24 +88,59 @@
 
         <div class="stats-grid">
           <article class="stat-card">
-            <span>WSZYSTKIE RAPORTY</span>
-            <strong id="statReports">0</strong>
-            <small>łącznie w bazie</small>
+            <span>WSZYSTKIE WPISY</span>
+            <strong id="statAllEntries">0</strong>
+            <small>łącznie w całej bazie</small>
           </article>
           <article class="stat-card">
-            <span>DTU + SERT</span>
-            <strong id="statSpecial">0</strong>
-            <small>raporty specjalistyczne</small>
+            <span>WSZYSTKIE RAPORTY</span>
+            <strong id="statReports">0</strong>
+            <small>raporty i wpisy operacyjne</small>
+          </article>
+          <article class="stat-card">
+            <span>DTU</span>
+            <strong id="statDtu">0</strong>
+            <small>raporty DTU</small>
+          </article>
+          <article class="stat-card">
+            <span>SERT</span>
+            <strong id="statSert">0</strong>
+            <small>raporty SERT</small>
           </article>
           <article class="stat-card">
             <span>IAD</span>
             <strong id="statIad">0</strong>
-            <small>raporty wewnętrzne</small>
+            <small>raporty IAD</small>
+          </article>
+          <article class="stat-card">
+            <span>RAPORTY ZASTĘPCY</span>
+            <strong id="statDeputy">0</strong>
+            <small>raporty patrolowe</small>
+          </article>
+          <article class="stat-card">
+            <span>UTRATA BRONI</span>
+            <strong id="statWeaponLoss">0</strong>
+            <small>zgłoszenia utraty broni</small>
+          </article>
+          <article class="stat-card">
+            <span>ZAWIESZENIA</span>
+            <strong id="statSuspensions">0</strong>
+            <small>aktywne wpisy zawieszeń</small>
+          </article>
+          <article class="stat-card">
+            <span>PLUSY</span>
+            <strong id="statPlus">0</strong>
+            <small>nadane plusy</small>
+          </article>
+          <article class="stat-card">
+            <span>MINUSY</span>
+            <strong id="statMinus">0</strong>
+            <small>nadane minusy</small>
           </article>
           <article class="stat-card">
             <span>AWANSE</span>
             <strong id="statPromotions">0</strong>
-            <small>zarejestrowane zmiany</small>
+            <small>zarejestrowane awanse</small>
           </article>
           <article class="stat-card">
             <span>DEGRADACJE</span>
@@ -116,6 +151,11 @@
             <span>ZWOLNIENIA</span>
             <strong id="statDismissals">0</strong>
             <small>zarejestrowane zwolnienia</small>
+          </article>
+          <article class="stat-card">
+            <span>WYPOWIEDZENIA</span>
+            <strong id="statResignations">0</strong>
+            <small>złożone wypowiedzenia</small>
           </article>
         </div>
 
@@ -248,7 +288,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260925-10"></script>
+  <script src="app.js?v=20260925-11"></script>
   <script src="auth.js?v=20260925-8"></script>
 </body>
 </html>
