@@ -34,7 +34,7 @@ const commands=[
         {name:"DTU",value:"DTU"},
         {name:"SERT",value:"SERT"},
         {name:"IAD",value:"IAD"},
-        {name:"Deputy",value:"DEPUTY"},
+        {name:"Raport zastępcy",value:"DEPUTY"},
         {name:"Utrata broni",value:"WEAPON_LOSS"}
       )),
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
@@ -88,6 +88,21 @@ function reportModal(type){
     new ActionRowBuilder().addComponents(input("subject","Dotyczy / osoba / sprawa",TextInputStyle.Short,true,"np. John Doe / Davis Avenue")),
     new ActionRowBuilder().addComponents(input("badge","Twój numer odznaki",TextInputStyle.Short,true,"np. 530")),
     new ActionRowBuilder().addComponents(input("details","Treść raportu",TextInputStyle.Paragraph,true,"Opisz przebieg zdarzenia..."))
+  );
+  return modal;
+}
+
+function deputyReportModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("deputy_report_modal")
+    .setTitle("Raport zastępcy");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("report_date","Data raportu",TextInputStyle.Short,true,"np. 25.09.2026")),
+    new ActionRowBuilder().addComponents(input("officer","Od — imię i nazwisko",TextInputStyle.Short,true,"np. Tomas Chase")),
+    new ActionRowBuilder().addComponents(input("badge","Numer odznaki",TextInputStyle.Short,true,"np. 11404")),
+    new ActionRowBuilder().addComponents(input("patrol_description","Opis patrolu",TextInputStyle.Paragraph,true,"Opisz przebieg patrolu...")),
+    new ActionRowBuilder().addComponents(input("signature","Podpis — stopień + odznaka",TextInputStyle.Short,true,"np. Commander 11404"))
   );
   return modal;
 }
@@ -337,6 +352,7 @@ client.on("interactionCreate",async interaction=>{
     if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
       const type=interaction.options.getString("typ",true);
       if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+      else if(type==="DEPUTY") await interaction.showModal(deputyReportModal());
       else await interaction.showModal(reportModal(type));
       return;
     }
@@ -349,7 +365,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport DTU",value:"DTU",description:"Detective Task Unit"},
           {label:"Raport SERT",value:"SERT",description:"Special Emergency Response Team"},
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
-          {label:"Raport Deputy",value:"DEPUTY",description:"Raport funkcjonariusza patrolowego"},
+          {label:"Raport zastępcy",value:"DEPUTY",description:"Raport patrolowy zastępcy"},
           {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
           {label:"Awans",value:"PROMOTION",description:"Rejestracja awansu"},
           {label:"Degradacja",value:"DEMOTION",description:"Rejestracja obniżenia stopnia"},
@@ -372,7 +388,32 @@ client.on("interactionCreate",async interaction=>{
       else if(type==="DISMISSAL") await interaction.showModal(dismissalModal());
       else if(type==="RESIGNATION") await interaction.showModal(resignationModal());
       else if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+      else if(type==="DEPUTY") await interaction.showModal(deputyReportModal());
       else await interaction.showModal(reportModal(type));
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="deputy_report_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const reportDate=interaction.fields.getTextInputValue("report_date").trim();
+      const officer=interaction.fields.getTextInputValue("officer").trim();
+      const badge=interaction.fields.getTextInputValue("badge").trim();
+      const patrolDescription=interaction.fields.getTextInputValue("patrol_description").trim();
+      const signature=interaction.fields.getTextInputValue("signature").trim();
+
+      const row=await supabaseInsert("reports",{
+        report_type:"DEPUTY",
+        title:"Raport zastępcy",
+        subject:`Od: ${officer} ${badge}`,
+        badge_number:badge,
+        details:`Data raportu: ${reportDate}\n\nOpis patrolu:\n${patrolDescription}\n\nZ wyrazami szacunku\n${officer}\n${signature}`,
+        author_discord_id:interaction.user.id,
+        author_discord_name:officer
+      });
+
+      await publishReportLog(interaction,row);
+      await interaction.editReply(`✅ **Raport zastępcy** został zapisany w Database. ID: \`${row.id}\``);
       return;
     }
 
