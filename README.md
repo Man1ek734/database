@@ -134,5 +134,5 @@ npm start
 ---
 
 **Los Santos Sheriff's Department**  
-Station 11 — Davis Avenue  
+Station 28 — Davis Avenue  
 Service • Integrity • Community
