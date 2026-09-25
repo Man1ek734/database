@@ -71,6 +71,41 @@ function ticketStaffRoleIds(guild){
     .map(role=>role.id);
 }
 
+function ticketCloseModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("ticket_close_modal")
+    .setTitle("Zamknij ticket");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      input("close_reason","Powód zamknięcia",TextInputStyle.Paragraph,true,"Napisz powód zamknięcia ticketu")
+    )
+  );
+  return modal;
+}
+
+async function closeTicketChannel(interaction,reason){
+  const channel=interaction.channel;
+  if(!channel?.topic?.includes("ticket-owner:")){
+    if(interaction.deferred || interaction.replied) await interaction.editReply("❌ To nie jest kanał ticketu.").catch(()=>{});
+    else await interaction.reply({content:"❌ To nie jest kanał ticketu.",ephemeral:true}).catch(()=>{});
+    return;
+  }
+
+  const closer=interaction.user.toString();
+  const payload={
+    content:`🔒 **Ticket zostaje zamknięty.**\n**Zamknął:** ${closer}\n**Powód:** ${reason}\n\nKanał zostanie usunięty za chwilę.`,
+    allowedMentions:{users:[interaction.user.id]}
+  };
+
+  if(interaction.deferred || interaction.replied) await interaction.editReply(payload);
+  else await interaction.reply(payload);
+
+  setTimeout(async()=>{
+    await channel.delete(`Ticket zamknięty przez ${interaction.user.tag}: ${reason}`).catch(error=>console.error("Ticket delete error:",error));
+  },3000);
+}
+
 function ticketPanelPayload(){
   const embed=new EmbedBuilder()
     .setTitle("🎫 LSSD • SYSTEM TICKETÓW")
@@ -126,6 +161,8 @@ const commands=[
       )),
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
   new SlashCommandBuilder().setName("urlop").setDescription("Złóż wniosek urlopowy"),
+  new SlashCommandBuilder().setName("zamknij").setDescription("Zamknij aktualny ticket")
+    .addStringOption(o=>o.setName("powod").setDescription("Powód zamknięcia ticketu").setRequired(true)),
   new SlashCommandBuilder().setName("plus").setDescription("Nadaj plus funkcjonariuszowi")
     .addUserOption(o=>o.setName("funkcjonariusz").setDescription("Osoba, która otrzymuje plus").setRequired(true)),
   new SlashCommandBuilder().setName("minus").setDescription("Nadaj minus funkcjonariuszowi")
@@ -707,11 +744,14 @@ client.on("interactionCreate",async interaction=>{
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger);
 
+      const highCommandPing=staffRoleIds.map(id=>`<@&${id}>`).join(" ");
+      const ticketPing=[interaction.user.toString(),highCommandPing].filter(Boolean).join(" • ");
+
       await ticket.send({
-        content:interaction.user.toString(),
+        content:ticketPing,
         embeds:[embed],
         components:[new ActionRowBuilder().addComponents(claim,close)],
-        allowedMentions:{users:[interaction.user.id]}
+        allowedMentions:{users:[interaction.user.id],roles:staffRoleIds}
       });
 
       await interaction.editReply(`✅ Ticket utworzony: ${ticket.toString()}`);
@@ -737,26 +777,19 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      const ownerMatch=interaction.channel.topic.match(/ticket-owner:(\d+)/);
-      const ownerId=ownerMatch?.[1];
+      await interaction.showModal(ticketCloseModal());
+      return;
+    }
 
-      if(ownerId){
-        await interaction.channel.permissionOverwrites.edit(ownerId,{
-          SendMessages:false,
-          AddReactions:false
-        }).catch(()=>null);
-      }
+    if(interaction.isModalSubmit() && interaction.customId==="ticket_close_modal"){
+      const reason=interaction.fields.getTextInputValue("close_reason").trim();
+      await closeTicketChannel(interaction,reason);
+      return;
+    }
 
-      const newName=interaction.channel.name.startsWith("closed-")
-        ? interaction.channel.name
-        : `closed-${interaction.channel.name.replace(/^ticket-/,"")}`;
-
-      await interaction.channel.setName(newName.slice(0,100)).catch(()=>null);
-
-      await interaction.reply({
-        content:`🔒 Ticket zamknięty przez ${interaction.user.toString()}.`,
-        allowedMentions:{users:[interaction.user.id]}
-      });
+    if(interaction.isChatInputCommand() && interaction.commandName==="zamknij"){
+      const reason=interaction.options.getString("powod",true).trim();
+      await closeTicketChannel(interaction,reason);
       return;
     }
 
