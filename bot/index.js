@@ -877,38 +877,6 @@ client.on("guildMemberUpdate",async(oldMember,newMember)=>{
 
     await sendLogEmbed(newMember.guild,embed);
 
-    // Nie spamuj wiadomościami przy automatycznym nadawaniu ról przez samego bota.
-    if(executor?.id===client.user.id) return;
-
-    const dmEmbed=new EmbedBuilder()
-      .setTitle("🎭 Zmiana ról • LSSD")
-      .setDescription(`Na serwerze **${newMember.guild.name}** zmieniono Twoje role.`)
-      .setColor(added.size && !removed.size ? 0x57F287 : removed.size && !added.size ? 0xED4245 : 0xC9AA51)
-      .setTimestamp();
-
-    if(added.size){
-      dmEmbed.addFields({
-        name:"✅ Nadano Ci role",
-        value:added.map(role=>`• ${role.name}`).join("\n"),
-        inline:false
-      });
-    }
-
-    if(removed.size){
-      dmEmbed.addFields({
-        name:"❌ Zabrano Ci role",
-        value:removed.map(role=>`• ${role.name}`).join("\n"),
-        inline:false
-      });
-    }
-
-    dmEmbed.addFields({
-      name:"Zmiany dokonał",
-      value:executor ? `${executor.tag}` : "Nie udało się ustalić",
-      inline:false
-    });
-
-    await newMember.send({embeds:[dmEmbed]}).catch(()=>{});
   }catch(error){
     console.error("Role update log error:",error);
   }
