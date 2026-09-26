@@ -1449,9 +1449,10 @@ client.on("interactionCreate",async interaction=>{
       });
 
       const notice=await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
-      notice.content += roleChange.ok
-        ? `\n✅ ${roleChange.message}`
-        : `\n⚠️ ${roleChange.message}`;
+      notice.content=roleChange.ok
+        ? `✅ ${roleChange.message}`
+        : `⚠️ ${roleChange.message}`;
+      notice.allowedMentions={parse:[]};
       await interaction.editReply(notice);
       return;
     }
@@ -1486,7 +1487,8 @@ client.on("interactionCreate",async interaction=>{
       });
 
       const notice=await publishPersonnelChange(interaction,row,"DEMOTION",targetUserId);
-      notice.content += `\n✅ ${roleChange.message}`;
+      notice.content=`✅ ${roleChange.message}`;
+      notice.allowedMentions={parse:[]};
       await interaction.editReply(notice);
       return;
     }
