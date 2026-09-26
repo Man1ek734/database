@@ -139,6 +139,59 @@ function normalizeTicketRole(value=""){
     .trim();
 }
 
+function findRankRole(guild,rankName){
+  const target=normalizeTicketRole(rankName);
+  if(!target) return null;
+
+  return guild.roles.cache.find(role=>{
+    const roleName=normalizeTicketRole(role.name);
+    return roleName===target || roleName.endsWith(" "+target);
+  }) || null;
+}
+
+async function applyPromotionRoles(interaction,targetUserId,oldRank,newRank){
+  const guild=interaction.guild;
+  if(!guild) return {ok:false,message:"Nie udało się zmienić rangi — brak serwera."};
+
+  await guild.roles.fetch().catch(()=>null);
+  const member=await guild.members.fetch(targetUserId).catch(()=>null);
+  if(!member) return {ok:false,message:"Nie udało się znaleźć funkcjonariusza na serwerze."};
+
+  const oldRole=findRankRole(guild,oldRank);
+  const newRole=findRankRole(guild,newRank);
+
+  if(!newRole){
+    return {ok:false,message:`Nie znaleziono na Discordzie rangi „${newRank}”.`};
+  }
+
+  const me=guild.members.me;
+  const highest=me?.roles?.highest?.position ?? -1;
+  if(newRole.managed || newRole.position>=highest){
+    return {ok:false,message:`Bot nie może nadać rangi „${newRole.name}”. Przenieś rangę bota wyżej.`};
+  }
+
+  await member.roles.add(
+    newRole,
+    `Awans przez ${interaction.user.tag}: ${oldRank} -> ${newRank}`
+  );
+
+  if(oldRole && oldRole.id!==newRole.id && member.roles.cache.has(oldRole.id)){
+    if(!oldRole.managed && oldRole.position<highest){
+      await member.roles.remove(
+        oldRole,
+        `Awans przez ${interaction.user.tag}: ${oldRank} -> ${newRank}`
+      );
+    }
+  }
+
+  return {
+    ok:true,
+    message:oldRole && oldRole.id!==newRole.id
+      ? `Ranga Discord została zmieniona: **${oldRole.name} → ${newRole.name}**.`
+      : `Nadano rangę Discord: **${newRole.name}**.`
+  };
+}
+
 function ticketStaffRoleIds(guild){
   const explicit=(process.env.TICKET_STAFF_ROLE_IDS||"")
     .split(",")
@@ -1295,12 +1348,22 @@ client.on("interactionCreate",async interaction=>{
       await interaction.deferReply();
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
+      const oldRank=interaction.fields.getTextInputValue("old_rank").trim();
+      const newRank=interaction.fields.getTextInputValue("new_rank").trim();
+
+      let roleChange;
+      try{
+        roleChange=await applyPromotionRoles(interaction,targetUserId,oldRank,newRank);
+      }catch(error){
+        console.error("Promotion role change error:",error);
+        roleChange={ok:false,message:"Nie udało się automatycznie zmienić rangi na Discordzie."};
+      }
 
       const row=await supabaseInsert("promotions",{
         officer_name:officer,
         badge_number:null,
-        old_rank:interaction.fields.getTextInputValue("old_rank").trim(),
-        new_rank:interaction.fields.getTextInputValue("new_rank").trim(),
+        old_rank:oldRank,
+        new_rank:newRank,
         reason:interaction.fields.getTextInputValue("reason").trim(),
         decision_date:interaction.fields.getTextInputValue("decision_date").trim(),
         promoted_by:cleanOfficerName(interaction),
@@ -1308,6 +1371,9 @@ client.on("interactionCreate",async interaction=>{
       });
 
       const notice=await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
+      notice.content += roleChange.ok
+        ? `\n✅ ${roleChange.message}`
+        : `\n⚠️ ${roleChange.message}`;
       await interaction.editReply(notice);
       return;
     }
