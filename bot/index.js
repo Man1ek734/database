@@ -36,10 +36,43 @@ const gatewayIntents=[
   GatewayIntentBits.GuildMembers,
   GatewayIntentBits.GuildMessages
 ];
+if(process.env.ENABLE_MESSAGE_CONTENT_LOGS==="true"){
+  gatewayIntents.push(GatewayIntentBits.MessageContent);
+}
 const client=new Client({
   intents:gatewayIntents,
   partials:[Partials.Message,Partials.Channel,Partials.GuildMember,Partials.User]
 });
+
+const deletedMessageCache=new Map();
+const MESSAGE_CACHE_TTL_MS=24*60*60*1000;
+const MESSAGE_CACHE_MAX=10000;
+
+function rememberMessage(message){
+  if(!message?.guild || !message.author || message.author.bot) return;
+
+  deletedMessageCache.set(message.id,{
+    guildId:message.guild.id,
+    channelId:message.channelId,
+    authorId:message.author.id,
+    authorTag:message.author.tag,
+    content:message.content || "",
+    attachments:Array.from(message.attachments?.values?.() || []).map(a=>a.url),
+    createdAt:Date.now()
+  });
+
+  if(deletedMessageCache.size>MESSAGE_CACHE_MAX){
+    const oldestKey=deletedMessageCache.keys().next().value;
+    if(oldestKey) deletedMessageCache.delete(oldestKey);
+  }
+}
+
+setInterval(()=>{
+  const cutoff=Date.now()-MESSAGE_CACHE_TTL_MS;
+  for(const [id,item] of deletedMessageCache){
+    if(item.createdAt<cutoff) deletedMessageCache.delete(id);
+  }
+},60*60*1000).unref?.();
 
 async function getLogChannel(guild){
   const channelId=process.env.LOG_CHANNEL_ID;
@@ -741,30 +774,51 @@ client.on("guildMemberRemove",async member=>{
   }
 });
 
+client.on("messageCreate",message=>{
+  try{
+    rememberMessage(message);
+  }catch(error){
+    console.error("Message cache error:",error);
+  }
+});
+
 client.on("messageDelete",async message=>{
   try{
     if(!message.guild) return;
-    if(message.author?.bot) return;
 
-    const author=message.author;
-    const attachmentText=message.attachments?.size
-      ? Array.from(message.attachments.values()).map(a=>a.url).join("\n")
-      : "";
+    const cached=deletedMessageCache.get(message.id);
+    deletedMessageCache.delete(message.id);
 
+    const author=message.author || (cached?.authorId ? await client.users.fetch(cached.authorId).catch(()=>null) : null);
+    if(author?.bot) return;
+
+    const content=message.content || cached?.content || "";
+    const attachmentUrls=message.attachments?.size
+      ? Array.from(message.attachments.values()).map(a=>a.url)
+      : (cached?.attachments || []);
+    const attachmentText=attachmentUrls.join("\n");
+
+    const authorValue=author
+      ? `${author.toString()} • ${author.tag} (${author.id})`
+      : cached
+        ? `${cached.authorTag || "Nieznany użytkownik"} (${cached.authorId})`
+        : "Nieznany użytkownik";
+
+    const channelId=message.channelId || cached?.channelId;
     const fields=[
       {
         name:"Autor",
-        value:author ? `${author.toString()} • ${author.tag} (${author.id})` : "Nieznany użytkownik",
+        value:authorValue,
         inline:false
       },
       {
         name:"Kanał",
-        value:message.channel?.toString?.() || `<#${message.channelId}>`,
+        value:channelId ? `<#${channelId}>` : "Nieznany kanał",
         inline:false
       },
       {
         name:"Treść wiadomości",
-        value:shortLogText(message.content || "Treść niedostępna / wiadomość nie była w pamięci bota."),
+        value:shortLogText(content || "Treść niedostępna — bot nie miał jej wcześniej w pamięci."),
         inline:false
       }
     ];
