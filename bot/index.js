@@ -1451,10 +1451,8 @@ client.on("interactionCreate",async interaction=>{
       });
 
       const notice=await publishPersonnelChange(interaction,row,"PROMOTION",targetUserId);
-      notice.content=roleChange.ok
-        ? `✅ ${roleChange.message}`
-        : `⚠️ ${roleChange.message}`;
-      notice.allowedMentions={parse:[]};
+      notice.content=`<@${targetUserId}>`;
+      notice.allowedMentions={users:[targetUserId]};
       await interaction.editReply(notice);
       return;
     }
