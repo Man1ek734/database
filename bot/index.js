@@ -2,6 +2,7 @@ import "dotenv/config";
 import { startWebApi } from "./webapi.js";
 import {
   ActionRowBuilder,
+  AuditLogEvent,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
@@ -9,6 +10,7 @@ import {
   EmbedBuilder,
   GatewayIntentBits,
   PermissionFlagsBits,
+  Partials,
   ModalBuilder,
   REST,
   Routes,
@@ -29,11 +31,53 @@ for(const key of required){
   if(!process.env[key]) throw new Error(`Brak zmiennej środowiskowej: ${key}`);
 }
 
-const gatewayIntents=[GatewayIntentBits.Guilds];
-if(process.env.ENABLE_MEMBER_WELCOME==="true"){
-  gatewayIntents.push(GatewayIntentBits.GuildMembers);
+const gatewayIntents=[
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildMessages
+];
+const client=new Client({
+  intents:gatewayIntents,
+  partials:[Partials.Message,Partials.Channel,Partials.GuildMember,Partials.User]
+});
+
+async function getLogChannel(guild){
+  const channelId=process.env.LOG_CHANNEL_ID;
+  if(!channelId) return null;
+  const channel=await guild.channels.fetch(channelId).catch(()=>null);
+  return channel?.isTextBased() ? channel : null;
 }
-const client=new Client({intents:gatewayIntents});
+
+async function sendLogEmbed(guild,embed){
+  const channel=await getLogChannel(guild);
+  if(!channel) return;
+  await channel.send({embeds:[embed],allowedMentions:{parse:[]}}).catch(error=>{
+    console.error("Log channel send error:",error);
+  });
+}
+
+function shortLogText(value,max=1000){
+  const text=String(value||"").trim();
+  if(!text) return "—";
+  return text.length>max ? text.slice(0,max-1)+"…" : text;
+}
+
+async function roleUpdateExecutor(guild,memberId){
+  try{
+    const logs=await guild.fetchAuditLogs({
+      type:AuditLogEvent.MemberRoleUpdate,
+      limit:6
+    });
+    const now=Date.now();
+    const entry=logs.entries.find(item=>
+      item.target?.id===memberId &&
+      now-item.createdTimestamp<10000
+    );
+    return entry?.executor || null;
+  }catch{
+    return null;
+  }
+}
 
 const TICKET_TYPES={
   POMOC:{label:"Pomoc",emoji:"🛟",description:"Potrzebujesz pomocy lub informacji"},
@@ -638,6 +682,19 @@ client.on("guildMemberAdd",async member=>{
       });
     }
 
+    const joinEmbed=new EmbedBuilder()
+      .setTitle("📥 Użytkownik dołączył")
+      .setDescription(`${member.user.toString()} dołączył na serwer.`)
+      .addFields(
+        {name:"Użytkownik",value:`${member.user.tag} (${member.user.id})`,inline:false},
+        {name:"Konto utworzone",value:`<t:${Math.floor(member.user.createdTimestamp/1000)}:F>`,inline:false}
+      )
+      .setColor(0x57F287)
+      .setThumbnail(member.user.displayAvatarURL({size:128}))
+      .setTimestamp();
+
+    await sendLogEmbed(member.guild,joinEmbed);
+
     const channelId=process.env.WELCOME_CHANNEL_ID;
     if(!channelId) return;
 
@@ -661,6 +718,112 @@ client.on("guildMemberAdd",async member=>{
     });
   }catch(error){
     console.error("Member join handler error:",error);
+  }
+});
+
+client.on("guildMemberRemove",async member=>{
+  try{
+    const user=member.user;
+    const leaveEmbed=new EmbedBuilder()
+      .setTitle("📤 Użytkownik opuścił serwer")
+      .setDescription(`${user.toString()} opuścił serwer.`)
+      .addFields(
+        {name:"Użytkownik",value:`${user.tag} (${user.id})`,inline:false},
+        {name:"Dołączył",value:member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp/1000)}:F>` : "—",inline:false}
+      )
+      .setColor(0xED4245)
+      .setThumbnail(user.displayAvatarURL({size:128}))
+      .setTimestamp();
+
+    await sendLogEmbed(member.guild,leaveEmbed);
+  }catch(error){
+    console.error("Member leave log error:",error);
+  }
+});
+
+client.on("messageDelete",async message=>{
+  try{
+    if(!message.guild) return;
+    if(message.author?.bot) return;
+
+    const author=message.author;
+    const attachmentText=message.attachments?.size
+      ? Array.from(message.attachments.values()).map(a=>a.url).join("\n")
+      : "";
+
+    const fields=[
+      {
+        name:"Autor",
+        value:author ? `${author.toString()} • ${author.tag} (${author.id})` : "Nieznany użytkownik",
+        inline:false
+      },
+      {
+        name:"Kanał",
+        value:message.channel?.toString?.() || `<#${message.channelId}>`,
+        inline:false
+      },
+      {
+        name:"Treść wiadomości",
+        value:shortLogText(message.content || "Treść niedostępna / wiadomość nie była w pamięci bota."),
+        inline:false
+      }
+    ];
+
+    if(attachmentText){
+      fields.push({name:"Załączniki",value:shortLogText(attachmentText),inline:false});
+    }
+
+    const embed=new EmbedBuilder()
+      .setTitle("🗑️ Usunięto wiadomość")
+      .addFields(fields)
+      .setColor(0xED4245)
+      .setTimestamp();
+
+    await sendLogEmbed(message.guild,embed);
+  }catch(error){
+    console.error("Message delete log error:",error);
+  }
+});
+
+client.on("guildMemberUpdate",async(oldMember,newMember)=>{
+  try{
+    const added=newMember.roles.cache.filter(role=>!oldMember.roles.cache.has(role.id));
+    const removed=oldMember.roles.cache.filter(role=>!newMember.roles.cache.has(role.id));
+
+    if(!added.size && !removed.size) return;
+
+    const executor=await roleUpdateExecutor(newMember.guild,newMember.id);
+    const embed=new EmbedBuilder()
+      .setTitle("🎭 Zmieniono role użytkownika")
+      .setDescription(newMember.user.toString())
+      .setColor(added.size ? 0x57F287 : 0xED4245)
+      .setTimestamp();
+
+    if(added.size){
+      embed.addFields({
+        name:"Nadane role",
+        value:added.map(role=>`<@&${role.id}>`).join("\n"),
+        inline:false
+      });
+    }
+
+    if(removed.size){
+      embed.addFields({
+        name:"Usunięte role",
+        value:removed.map(role=>`<@&${role.id}>`).join("\n"),
+        inline:false
+      });
+    }
+
+    embed.addFields({
+      name:"Zmienił",
+      value:executor ? `${executor.toString()} • ${executor.tag}` : "Nie udało się ustalić",
+      inline:false
+    });
+
+    await sendLogEmbed(newMember.guild,embed);
+  }catch(error){
+    console.error("Role update log error:",error);
   }
 });
 
