@@ -162,10 +162,12 @@ function findRankRole(guild,rankName){
   const target=normalizeTicketRole(rankName);
   if(!target) return null;
 
-  return guild.roles.cache.find(role=>{
-    const roleName=normalizeTicketRole(role.name);
-    return roleName===target || roleName.endsWith(" "+target);
-  }) || null;
+  const allowed=LSSD_RANK_ORDER.some(rank=>normalizeTicketRole(rank)===target);
+  if(!allowed) return null;
+
+  return guild.roles.cache.find(role=>
+    normalizeTicketRole(role.name)===target
+  ) || null;
 }
 
 async function applyPromotionRoles(interaction,targetUserId,oldRank,newRank){
