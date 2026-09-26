@@ -208,3 +208,5 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,
 @media (max-width:560px){
   .stats-grid.stats-collapsed .stat-card:nth-child(n+2){display:none}
 }
+
+.record-details{white-space:pre-line;line-height:1.65}
