@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const LSSD_RANKS=[
+  "Gubernator",
   "Sheriff","Undersheriff","Assistant Sheriff","Commander",
   "Captain II","Captain I","Lieutenant II","Lieutenant I",
   "Sergeant II","Sergeant I","Corporal II","Corporal I",
