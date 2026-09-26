@@ -385,6 +385,7 @@ const commands=[
         {name:"Utrata broni",value:"WEAPON_LOSS"}
       )),
   new SlashCommandBuilder().setName("utrata-broni").setDescription("Wypełnij raport o utracie broni"),
+  new SlashCommandBuilder().setName("licencjanabroń").setDescription("Wystaw licencję na broń DOJ"),
   new SlashCommandBuilder().setName("urlop").setDescription("Złóż wniosek urlopowy"),
   new SlashCommandBuilder().setName("zamknij").setDescription("Zamknij aktualny ticket")
     .addStringOption(o=>o.setName("powod").setDescription("Powód zamknięcia ticketu").setRequired(true)),
@@ -478,6 +479,21 @@ function weaponLossModal(){
     new ActionRowBuilder().addComponents(input("loss_datetime","Data i godzina utraty",TextInputStyle.Short,true,"np. 25.09.2026 00:15")),
     new ActionRowBuilder().addComponents(input("badge","Twój numer odznaki",TextInputStyle.Short,true,"np. 11404")),
     new ActionRowBuilder().addComponents(input("circumstances","Opis okoliczności utraty",TextInputStyle.Paragraph,true,"Opisz dokładnie, kiedy i w jakich okolicznościach utracono broń"))
+  );
+  return modal;
+}
+
+function weaponLicenseModal(){
+  const modal=new ModalBuilder()
+    .setCustomId("weapon_license_modal")
+    .setTitle("Licencja na Broń • DOJ");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input("issue_date","Data wydania",TextInputStyle.Short,true,"DD.MM.RRRR")),
+    new ActionRowBuilder().addComponents(input("valid_until","Data ważności",TextInputStyle.Short,true,"DD.MM.RRRR")),
+    new ActionRowBuilder().addComponents(input("holder_name","Imię i nazwisko posiadacza",TextInputStyle.Short,true,"np. John Doe")),
+    new ActionRowBuilder().addComponents(input("birth_date","Data urodzenia",TextInputStyle.Short,true,"DD.MM.RRRR")),
+    new ActionRowBuilder().addComponents(input("address","Adres",TextInputStyle.Short,true,"np. 123 Davis Ave, Los Santos"))
   );
   return modal;
 }
@@ -1185,6 +1201,11 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    if(interaction.isChatInputCommand() && interaction.commandName==="licencjanabroń"){
+      await interaction.showModal(weaponLicenseModal());
+      return;
+    }
+
     if(interaction.isChatInputCommand() && interaction.commandName==="utrata-broni"){
       await interaction.showModal(weaponLossModal());
       return;
@@ -1235,6 +1256,7 @@ client.on("interactionCreate",async interaction=>{
     if(interaction.isChatInputCommand() && interaction.commandName==="raport"){
       const type=interaction.options.getString("typ",true);
       if(type==="WEAPON_LOSS") await interaction.showModal(weaponLossModal());
+      else if(type==="WEAPON_LICENSE") await interaction.showModal(weaponLicenseModal());
       else if(type==="VACATION") await interaction.showModal(vacationModal());
       else if(type==="DEPUTY") await interaction.showModal(deputyReportModal());
       else await interaction.showModal(reportModal(type));
@@ -1251,6 +1273,7 @@ client.on("interactionCreate",async interaction=>{
           {label:"Raport IAD",value:"IAD",description:"Internal Affairs Division"},
           {label:"Raport zastępcy",value:"DEPUTY",description:"Raport patrolowy zastępcy"},
           {label:"Raport o utracie broni",value:"WEAPON_LOSS",description:"Zgłoszenie utraty broni służbowej"},
+          {label:"Licencja na broń",value:"WEAPON_LICENSE",description:"Wystaw licencję Department of Justice"},
           {label:"Urlop",value:"VACATION",description:"Złóż wniosek urlopowy"},
           {label:"Plus",value:"PLUS",description:"Nadaj plus funkcjonariuszowi"},
           {label:"Minus",value:"MINUS",description:"Nadaj minus funkcjonariuszowi"},
@@ -1320,6 +1343,42 @@ client.on("interactionCreate",async interaction=>{
 
       await publishReportLog(interaction,row);
       await interaction.editReply(`✅ **Raport zastępcy** został zapisany w Database. ID: \`${row.id}\``);
+      return;
+    }
+
+    if(interaction.isModalSubmit() && interaction.customId==="weapon_license_modal"){
+      await interaction.deferReply({ephemeral:true});
+
+      const issueDate=interaction.fields.getTextInputValue("issue_date").trim();
+      const validUntil=interaction.fields.getTextInputValue("valid_until").trim();
+      const holderName=interaction.fields.getTextInputValue("holder_name").trim();
+      const birthDate=interaction.fields.getTextInputValue("birth_date").trim();
+      const address=interaction.fields.getTextInputValue("address").trim();
+      const issuer=cleanOfficerName(interaction);
+
+      const row=await supabaseInsert("reports",{
+        report_type:"WEAPON_LICENSE",
+        title:"Licencja na Broń",
+        subject:holderName,
+        badge_number:null,
+        details:
+          "Stan: San Andreas\n" +
+          "Organ wydający: Department of Justice\n" +
+          "Rodzaj dokumentu: Licencja na Broń\n" +
+          `Data wydania: ${issueDate}\n` +
+          `Data ważności: ${validUntil}\n\n` +
+          "DANE POSIADACZA\n" +
+          `Imię i nazwisko: ${holderName}\n` +
+          `Data urodzenia: ${birthDate}\n` +
+          `Adres: ${address}`,
+        author_discord_id:interaction.user.id,
+        author_discord_name:issuer
+      });
+
+      await publishReportLog(interaction,row);
+      await interaction.editReply(
+        `✅ **Licencja na Broń** dla **${holderName}** została wystawiona i zapisana w Database. ID: \`${row.id}\``
+      );
       return;
     }
 
