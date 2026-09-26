@@ -140,7 +140,6 @@ const LSSD_RANK_ORDER=[
 ];
 
 const AUTO_JOIN_ROLE_NAMES=[
-  "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Los Santos Sheriff Department ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
   "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Szkolenia ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
   "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Akta ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
   "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Obywatele ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
