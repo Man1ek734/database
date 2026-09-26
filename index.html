@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260925-8" />
+  <link rel="stylesheet" href="style.css?v=20260926-1" />
 </head>
 <body>
   <div id="appView" class="app-shell">
@@ -30,14 +30,15 @@
         <button class="nav-item" data-view="reports-iad"><span>05</span> Raporty IAD</button>
         <button class="nav-item" data-view="reports-deputy"><span>06</span> Raporty zastępcy</button>
         <button class="nav-item" data-view="reports-weapon-loss"><span>07</span> Utrata broni</button>
-        <button class="nav-item" data-view="reports-suspensions"><span>08</span> Zawieszenia</button>
-        <button class="nav-item" data-view="reports-vacation"><span>09</span> Urlopy</button>
-        <button class="nav-item" data-view="reports-plus"><span>10</span> Plusy</button>
-        <button class="nav-item" data-view="reports-minus"><span>11</span> Minusy</button>
-        <button class="nav-item" data-view="promotions"><span>12</span> Awanse</button>
-        <button class="nav-item" data-view="demotions"><span>13</span> Degradacje</button>
-        <button class="nav-item" data-view="dismissals"><span>14</span> Zwolnienia</button>
-        <button class="nav-item" data-view="resignations"><span>15</span> Wypowiedzenia</button>
+        <button class="nav-item" data-view="reports-weapon-license"><span>08</span> Licencje na broń</button>
+        <button class="nav-item" data-view="reports-suspensions"><span>09</span> Zawieszenia</button>
+        <button class="nav-item" data-view="reports-vacation"><span>10</span> Urlopy</button>
+        <button class="nav-item" data-view="reports-plus"><span>11</span> Plusy</button>
+        <button class="nav-item" data-view="reports-minus"><span>12</span> Minusy</button>
+        <button class="nav-item" data-view="promotions"><span>13</span> Awanse</button>
+        <button class="nav-item" data-view="demotions"><span>14</span> Degradacje</button>
+        <button class="nav-item" data-view="dismissals"><span>15</span> Zwolnienia</button>
+        <button class="nav-item" data-view="resignations"><span>16</span> Wypowiedzenia</button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -122,6 +123,11 @@
             <span>UTRATA BRONI</span>
             <strong id="statWeaponLoss">0</strong>
             <small>zgłoszenia utraty broni</small>
+          </article>
+          <article class="stat-card">
+            <span>LICENCJE NA BROŃ</span>
+            <strong id="statWeaponLicense">0</strong>
+            <small>wystawione licencje DOJ</small>
           </article>
           <article class="stat-card">
             <span>ZAWIESZENIA</span>
@@ -218,6 +224,7 @@
               <option value="IAD">IAD</option>
               <option value="DEPUTY">Raport zastępcy</option>
               <option value="WEAPON_LOSS">Utrata broni</option>
+              <option value="WEAPON_LICENSE">Licencja na broń</option>
               <option value="SUSPENSION">Zawieszenie</option>
               <option value="VACATION">Urlop</option>
               <option value="PLUS">Plus</option>
@@ -298,7 +305,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260925-16"></script>
-  <script src="auth.js?v=20260925-9"></script>
+  <script src="app.js?v=20260926-1"></script>
+  <script src="auth.js?v=20260926-1"></script>
 </body>
 </html>
