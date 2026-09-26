@@ -120,6 +120,25 @@ const TICKET_TYPES={
 };
 
 const TICKET_STAFF_RANKS=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+const LSSD_RANK_ORDER=[
+  "Sheriff",
+  "Undersheriff",
+  "Assistant Sheriff",
+  "Commander",
+  "Captain II",
+  "Captain I",
+  "Lieutenant II",
+  "Lieutenant I",
+  "Sergeant II",
+  "Sergeant I",
+  "Corporal II",
+  "Corporal I",
+  "Deputy Sheriff III",
+  "Deputy Sheriff II",
+  "Deputy Sheriff I",
+  "Deputy Sheriff Trainee"
+];
+
 const AUTO_JOIN_ROLE_NAMES=[
   "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Los Santos Sheriff Department ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
   "⎯⎯⎯⎯⎯⎯⎯⎯⎯ ↓ Szkolenia ↓ ⎯⎯⎯⎯⎯⎯⎯⎯⎯",
@@ -189,6 +208,67 @@ async function applyPromotionRoles(interaction,targetUserId,oldRank,newRank){
     message:oldRole && oldRole.id!==newRole.id
       ? `Ranga Discord została zmieniona: **${oldRole.name} → ${newRole.name}**.`
       : `Nadano rangę Discord: **${newRole.name}**.`
+  };
+}
+
+async function applyAutomaticDemotion(interaction,targetUserId){
+  const guild=interaction.guild;
+  if(!guild) return {ok:false,message:"Nie udało się zmienić rangi — brak serwera."};
+
+  await guild.roles.fetch().catch(()=>null);
+  const member=await guild.members.fetch(targetUserId).catch(()=>null);
+  if(!member) return {ok:false,message:"Nie udało się znaleźć funkcjonariusza na serwerze."};
+
+  let currentRank=null;
+  let currentRole=null;
+
+  for(const rankName of LSSD_RANK_ORDER){
+    const role=findRankRole(guild,rankName);
+    if(role && member.roles.cache.has(role.id)){
+      currentRank=rankName;
+      currentRole=role;
+      break;
+    }
+  }
+
+  if(!currentRank || !currentRole){
+    return {ok:false,message:"Nie udało się wykryć aktualnego stopnia funkcjonariusza."};
+  }
+
+  const currentIndex=LSSD_RANK_ORDER.indexOf(currentRank);
+  if(currentIndex<0 || currentIndex===LSSD_RANK_ORDER.length-1){
+    return {ok:false,message:`Ranga **${currentRank}** nie ma już niższego stopnia.`};
+  }
+
+  const newRank=LSSD_RANK_ORDER[currentIndex+1];
+  const newRole=findRankRole(guild,newRank);
+
+  if(!newRole){
+    return {ok:false,message:`Nie znaleziono na Discordzie niższej rangi „${newRank}”.`};
+  }
+
+  const me=guild.members.me;
+  const highest=me?.roles?.highest?.position ?? -1;
+
+  if(newRole.managed || newRole.position>=highest || currentRole.managed || currentRole.position>=highest){
+    return {ok:false,message:"Bot nie może zmienić tych rang. Przenieś rangę bota wyżej w hierarchii."};
+  }
+
+  await member.roles.add(
+    newRole,
+    `Degradacja przez ${interaction.user.tag}: ${currentRank} -> ${newRank}`
+  );
+
+  await member.roles.remove(
+    currentRole,
+    `Degradacja przez ${interaction.user.tag}: ${currentRank} -> ${newRank}`
+  );
+
+  return {
+    ok:true,
+    oldRank:currentRank,
+    newRank,
+    message:`Ranga Discord została zmieniona: **${currentRank} → ${newRank}**.`
   };
 }
 
@@ -454,8 +534,6 @@ function demotionModal(targetUserId){
     .setCustomId(`demotion_modal:${targetUserId}`)
     .setTitle("Degradacja funkcjonariusza");
   modal.addComponents(
-    new ActionRowBuilder().addComponents(input("old_rank","Poprzedni stopień",TextInputStyle.Short,true,"np. Sergeant I")),
-    new ActionRowBuilder().addComponents(input("new_rank","Nowy stopień",TextInputStyle.Short,true,"np. Corporal II")),
     new ActionRowBuilder().addComponents(input("reason","Powód",TextInputStyle.Paragraph,true,"Podaj powód degradacji")),
     new ActionRowBuilder().addComponents(input("decision_date","Data",TextInputStyle.Short,true,"DD.MM.RRRR"))
   );
@@ -1383,11 +1461,24 @@ client.on("interactionCreate",async interaction=>{
       const targetUserId=interaction.customId.split(":")[1];
       const officer=await getTargetOfficerName(interaction,targetUserId);
 
+      let roleChange;
+      try{
+        roleChange=await applyAutomaticDemotion(interaction,targetUserId);
+      }catch(error){
+        console.error("Demotion role change error:",error);
+        roleChange={ok:false,message:"Nie udało się automatycznie zmienić rangi na Discordzie."};
+      }
+
+      if(!roleChange.ok){
+        await interaction.editReply(`❌ ${roleChange.message}`);
+        return;
+      }
+
       const row=await supabaseInsert("demotions",{
         officer_name:officer,
         badge_number:null,
-        old_rank:interaction.fields.getTextInputValue("old_rank").trim(),
-        new_rank:interaction.fields.getTextInputValue("new_rank").trim(),
+        old_rank:roleChange.oldRank,
+        new_rank:roleChange.newRank,
         reason:interaction.fields.getTextInputValue("reason").trim(),
         decision_date:interaction.fields.getTextInputValue("decision_date").trim(),
         demoted_by:cleanOfficerName(interaction),
@@ -1395,6 +1486,7 @@ client.on("interactionCreate",async interaction=>{
       });
 
       const notice=await publishPersonnelChange(interaction,row,"DEMOTION",targetUserId);
+      notice.content += `\n✅ ${roleChange.message}`;
       await interaction.editReply(notice);
       return;
     }
