@@ -11,7 +11,7 @@ const $$=s=>[...document.querySelectorAll(s)];
 const fmt=d=>new Intl.DateTimeFormat("pl-PL",{dateStyle:"medium",timeStyle:"short"}).format(new Date(d));
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeSearch=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
-const reportTypeLabel=t=>t==="WEAPON_LOSS"?"UTRATA BRONI":t==="DEPUTY"?"RAPORT ZASTĘPCY":t==="SUSPENSION"?"ZAWIESZENIE":t==="VACATION"?"URLOP":t==="PLUS"?"PLUS":t==="MINUS"?"MINUS":t;
+const reportTypeLabel=t=>t==="WEAPON_LOSS"?"UTRATA BRONI":t==="WEAPON_LICENSE"?"LICENCJA NA BROŃ":t==="DEPUTY"?"RAPORT ZASTĘPCY":t==="SUSPENSION"?"ZAWIESZENIE":t==="VACATION"?"URLOP":t==="PLUS"?"PLUS":t==="MINUS"?"MINUS":t;
 const matchesQuery=(values,q)=>{
   if(!q) return true;
   const hay=normalizeSearch(values.join(" "));
@@ -65,6 +65,7 @@ function renderAll(){
   $("#statIad").textContent=reportCount("IAD");
   $("#statDeputy").textContent=reportCount("DEPUTY");
   $("#statWeaponLoss").textContent=reportCount("WEAPON_LOSS");
+  $("#statWeaponLicense").textContent=reportCount("WEAPON_LICENSE");
   $("#statSuspensions").textContent=reportCount("SUSPENSION");
   $("#statVacation").textContent=reportCount("VACATION");
   $("#statPlus").textContent=reportCount("PLUS");
@@ -115,7 +116,7 @@ function renderReports(){
       </div>
       <h3>${escapeHtml(r.title)}</h3>
       <p><strong>Dotyczy:</strong> ${escapeHtml(r.subject||"—")}</p>
-      <p>${escapeHtml(r.details||"Brak opisu.")}</p>
+      <p class="record-details">${escapeHtml(r.details||"Brak opisu.")}</p>
       <div class="record-meta">
         <span>Odznaka: ${escapeHtml(r.badge_number||"—")}</span>
         <span>Autor: ${escapeHtml(r.author_discord_name||"—")}</span>
@@ -334,6 +335,7 @@ function switchView(view){
       "reports-iad":["Raporty IAD","IAD"],
       "reports-deputy":["Raporty zastępcy","DEPUTY"],
       "reports-weapon-loss":["Utrata broni","WEAPON_LOSS"],
+      "reports-weapon-license":["Licencje na broń","WEAPON_LICENSE"],
       "reports-suspensions":["Zawieszenia","SUSPENSION"],
       "reports-vacation":["Urlopy","VACATION"],
       "reports-plus":["Plusy","PLUS"],
