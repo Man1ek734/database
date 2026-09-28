@@ -3,17 +3,18 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const LSSD_RANKS=[
   "Gubernator",
-  "Sheriff","Undersheriff","Assistant Sheriff","Commander",
-  "Captain II","Captain I","Lieutenant II","Lieutenant I",
-  "Sergeant II","Sergeant I","Corporal II","Corporal I",
-  "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+  "Captain",
+  "Lieutenant",
+  "Sergeant",
+  "Deputy Sheriff Bonus II",
+  "Deputy Sheriff Bonus I",
+  "Deputy Sheriff Trainee"
 ];
 
 const MANAGEMENT_RANKS=[
-  "Sheriff",
-  "Undersheriff",
-  "Assistant Sheriff",
-  "Commander"
+  "Gubernator",
+  "Captain",
+  "Lieutenant"
 ];
 
 const EDIT_FIELDS={
@@ -26,6 +27,8 @@ const EDIT_FIELDS={
 
 const SESSION_TTL_SECONDS=7*24*60*60;
 const roleCache={expires:0,roles:[]};
+const memberPermissionCache=new Map();
+const MEMBER_PERMISSION_TTL_MS=60*1000;
 
 function settings(){
   const webAppUrl=process.env.WEB_APP_URL || "https://man1ek734.github.io/database/";
@@ -174,38 +177,79 @@ async function getGuildRoles(){
   return roleCache.roles;
 }
 
-async function getMemberPermissions(userId){
-  const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/members/"+userId;
-  const memberRes=await fetch(url,{headers:{Authorization:"Bot "+process.env.DISCORD_TOKEN}});
-  if(memberRes.status===404) return {member:false,roles:[],rank:null,canEdit:false};
-  if(!memberRes.ok) throw new Error("Discord member "+memberRes.status);
-  const member=await memberRes.json();
-  const guildRoles=await getGuildRoles();
-  const names=member.roles.map(id=>{
-    const role=guildRoles.find(r=>r.id===id);
-    return role ? role.name : null;
-  }).filter(Boolean);
+async function getMemberPermissions(userId,memberProvider=null){
+  const cached=memberPermissionCache.get(userId);
+  if(cached && Date.now()<cached.expires) return cached.value;
+
+  let snapshot=null;
+
+  if(typeof memberProvider==="function"){
+    try{
+      snapshot=await memberProvider(userId);
+    }catch(error){
+      console.error("Discord gateway member lookup error",error);
+    }
+  }
+
+  let names=[];
+  let nickname="";
+  let avatarUrl=null;
+  let isMember=false;
+
+  if(snapshot){
+    isMember=Boolean(snapshot.member);
+    names=Array.isArray(snapshot.roles) ? snapshot.roles : [];
+    nickname=cleanServerNickname(snapshot.nickname || "");
+    avatarUrl=snapshot.memberAvatarUrl || null;
+  }else{
+    const url="https://discord.com/api/v10/guilds/"+process.env.DISCORD_GUILD_ID+"/members/"+userId;
+    const memberRes=await fetch(url,{headers:{Authorization:"Bot "+process.env.DISCORD_TOKEN}});
+
+    if(memberRes.status===404){
+      const value={member:false,roles:[],rank:null,isManagement:false,canEdit:false,canDelete:false,nickname:"",memberAvatarUrl:null};
+      memberPermissionCache.set(userId,{expires:Date.now()+MEMBER_PERMISSION_TTL_MS,value});
+      return value;
+    }
+
+    if(memberRes.status===429 && cached){
+      return cached.value;
+    }
+
+    if(!memberRes.ok) throw new Error("Discord member "+memberRes.status);
+
+    const member=await memberRes.json();
+    const guildRoles=await getGuildRoles();
+    names=member.roles.map(id=>{
+      const role=guildRoles.find(r=>r.id===id);
+      return role ? role.name : null;
+    }).filter(Boolean);
+    nickname=cleanServerNickname(member.nick || member.user?.global_name || member.user?.username || "");
+    avatarUrl=member.avatar
+      ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
+      : discordAvatarUrl(userId,member.user?.avatar || null);
+    isMember=true;
+  }
+
   const detectedRanks=names.map(classifyLssdRank).filter(Boolean);
   const detectedRank=detectLssdRank(names);
   const isManagement=detectedRanks.some(rank=>MANAGEMENT_RANKS.includes(rank));
 
-  const avatarUrl = member.avatar
-    ? discordAvatarUrl(userId,member.avatar,process.env.DISCORD_GUILD_ID)
-    : discordAvatarUrl(userId,member.user?.avatar || null);
-
-  return {
-    member:true,
+  const value={
+    member:isMember,
     roles:names,
     rank:detectedRank,
     isManagement,
     canEdit:isManagement,
     canDelete:isManagement,
-    nickname:cleanServerNickname(member.nick || member.user?.global_name || member.user?.username || ""),
+    nickname,
     memberAvatarUrl:avatarUrl
   };
+
+  memberPermissionCache.set(userId,{expires:Date.now()+MEMBER_PERMISSION_TTL_MS,value});
+  return value;
 }
 
-export function startWebApi({writeRecord}){
+export function startWebApi({writeRecord,memberProvider=null}){
   const {webAppUrl,publicBaseUrl,webOrigin}=settings();
 
   const server=createServer(async(req,res)=>{
@@ -323,7 +367,7 @@ export function startWebApi({writeRecord}){
           sendJson(res,401,{authenticated:false},origin,webOrigin);
           return;
         }
-        const perms=await getMemberPermissions(session.sub);
+        const perms=await getMemberPermissions(session.sub,memberProvider);
         const userAvatarUrl=discordAvatarUrl(session.sub,session.avatar || null);
         sendJson(res,200,{
           authenticated:true,
@@ -345,7 +389,7 @@ export function startWebApi({writeRecord}){
           sendJson(res,401,{error:"Musisz zalogowac sie przez Discord."},origin,webOrigin);
           return;
         }
-        const perms=await getMemberPermissions(session.sub);
+        const perms=await getMemberPermissions(session.sub,memberProvider);
         if(!perms.canEdit){
           sendJson(res,403,{error:"Tylko zarząd LSSD może edytować wpisy."},origin,webOrigin);
           return;
@@ -381,7 +425,7 @@ export function startWebApi({writeRecord}){
           return;
         }
 
-        const perms=await getMemberPermissions(session.sub);
+        const perms=await getMemberPermissions(session.sub,memberProvider);
         if(!perms.canDelete){
           sendJson(res,403,{error:"Tylko zarząd LSSD może usuwać wpisy."},origin,webOrigin);
           return;
