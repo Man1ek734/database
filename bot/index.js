@@ -119,23 +119,13 @@ const TICKET_TYPES={
   INNE:{label:"Inne",emoji:"📌",description:"Inna sprawa"}
 };
 
-const TICKET_STAFF_RANKS=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+const TICKET_STAFF_RANKS=["Captain","Lieutenant"];
 const LSSD_RANK_ORDER=[
-  "Sheriff",
-  "Undersheriff",
-  "Assistant Sheriff",
-  "Commander",
-  "Captain II",
-  "Captain I",
-  "Lieutenant II",
-  "Lieutenant I",
-  "Sergeant II",
-  "Sergeant I",
-  "Corporal II",
-  "Corporal I",
-  "Deputy Sheriff III",
-  "Deputy Sheriff II",
-  "Deputy Sheriff I",
+  "Captain",
+  "Lieutenant",
+  "Sergeant",
+  "Deputy Sheriff Bonus II",
+  "Deputy Sheriff Bonus I",
   "Deputy Sheriff Trainee"
 ];
 
@@ -1624,6 +1614,36 @@ client.on("interactionCreate",async interaction=>{
   }
 });
 
-startWebApi({writeRecord:supabaseWrite});
+async function websiteMemberProvider(userId){
+  const guild=client.guilds.cache.get(process.env.DISCORD_GUILD_ID)
+    || await client.guilds.fetch(process.env.DISCORD_GUILD_ID).catch(()=>null);
+
+  if(!guild) return null;
+
+  let member=guild.members.cache.get(userId) || null;
+  if(!member){
+    member=await guild.members.fetch(userId).catch(()=>null);
+  }
+
+  if(!member){
+    return {
+      member:false,
+      roles:[],
+      nickname:"",
+      memberAvatarUrl:null
+    };
+  }
+
+  return {
+    member:true,
+    roles:member.roles.cache
+      .filter(role=>role.id!==guild.id)
+      .map(role=>role.name),
+    nickname:member.displayName || member.user.globalName || member.user.username || "",
+    memberAvatarUrl:member.displayAvatarURL({size:128})
+  };
+}
+
+startWebApi({writeRecord:supabaseWrite,memberProvider:websiteMemberProvider});
 
 client.login(process.env.DISCORD_TOKEN);
