@@ -46,10 +46,13 @@ function lssdNormalizeRole(value=""){
 
 function lssdClassifyRank(rawRole){
   const ranks=[
-    "Sheriff","Undersheriff","Assistant Sheriff","Commander",
-    "Captain II","Captain I","Lieutenant II","Lieutenant I",
-    "Sergeant II","Sergeant I","Corporal II","Corporal I",
-    "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+    "Gubernator",
+    "Captain",
+    "Lieutenant",
+    "Sergeant",
+    "Deputy Sheriff Bonus II",
+    "Deputy Sheriff Bonus I",
+    "Deputy Sheriff Trainee"
   ];
   const role=lssdNormalizeRole(rawRole);
   const ordered=[...ranks].sort((a,b)=>lssdNormalizeRole(b).length-lssdNormalizeRole(a).length);
@@ -62,10 +65,13 @@ function lssdClassifyRank(rawRole){
 
 function lssdRankFromRoles(roles=[]){
   const hierarchy=[
-    "Sheriff","Undersheriff","Assistant Sheriff","Commander",
-    "Captain II","Captain I","Lieutenant II","Lieutenant I",
-    "Sergeant II","Sergeant I","Corporal II","Corporal I",
-    "Deputy Sheriff III","Deputy Sheriff II","Deputy Sheriff I","Deputy Sheriff Trainee"
+    "Gubernator",
+    "Captain",
+    "Lieutenant",
+    "Sergeant",
+    "Deputy Sheriff Bonus II",
+    "Deputy Sheriff Bonus I",
+    "Deputy Sheriff Trainee"
   ];
   const found=roles.map(lssdClassifyRank).filter(Boolean);
   for(const rank of hierarchy){
@@ -76,7 +82,7 @@ function lssdRankFromRoles(roles=[]){
 
 function lssdSetLoggedIn(data){
   state.auth=data;
-  const managementRanks=["Sheriff","Undersheriff","Assistant Sheriff","Commander"];
+  const managementRanks=["Gubernator","Captain","Lieutenant"];
   const rankFromRoles=lssdRankFromRoles(data.roles || []);
   const effectiveRank=data.rank || rankFromRoles;
   const managementByRank=managementRanks.includes(effectiveRank);
@@ -138,9 +144,9 @@ async function lssdRestoreDiscordSession(){
     const res=await fetch(lssdApiUrl+"/api/me",{headers:lssdAuthHeader()});
     if(!res.ok) throw new Error("session");
     lssdSetLoggedIn(await res.json());
-  }catch{
-    localStorage.removeItem("lssd_discord_session");
-    lssdSetLoggedOut();
+  }catch(error){
+    console.error("Nie udało się odświeżyć profilu Discord",error);
+    lssdShowLoginToast("Profil Discord chwilowo nie mógł się odświeżyć. Sesja logowania została zachowana.");
   }
 }
 
