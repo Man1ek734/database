@@ -883,14 +883,14 @@ client.on("guildMemberAdd",async member=>{
     if(!channel?.isTextBased()) return;
 
     const embed=new EmbedBuilder()
-      .setTitle("⭐ LOS SANTOS SHERIFF’S DEPARTMENT")
+      .setTitle("🟢 LOS SANTOS SHERIFF’S DEPARTMENT")
       .setDescription(
         `Witaj ${member.user.toString()}.\n\n` +
         "Od dziś reprezentujesz Los Santos Sheriff’s Department.\n" +
         "Noś odznakę z honorem i służ mieszkańcom hrabstwa.\n\n" +
         "Service • Integrity • Community"
       )
-      .setColor(0xC9AA51)
+      .setColor(0x57F287)
       .setFooter({text:"Los Santos Sheriff's Department"});
 
     await channel.send({
@@ -1030,7 +1030,47 @@ client.on("guildMemberUpdate",async(oldMember,newMember)=>{
   }
 });
 
+async function massAssignRoleOnce(){
+  const guild=await client.guilds.fetch(process.env.DISCORD_GUILD_ID).catch(()=>null);
+  if(!guild){
+    console.error("Mass role: nie znaleziono serwera.");
+    return;
+  }
+
+  const roleId="1552783550808592435";
+  const role=await guild.roles.fetch(roleId).catch(()=>null);
+  if(!role){
+    console.error(`Mass role: nie znaleziono roli ${roleId}.`);
+    return;
+  }
+
+  const me=await guild.members.fetchMe().catch(()=>null);
+  if(!me || role.managed || role.position>=me.roles.highest.position){
+    console.error(`Mass role: bot nie może zarządzać rolą ${role.name} (${roleId}).`);
+    return;
+  }
+
+  const members=await guild.members.fetch();
+  const targets=members.filter(member=>!member.user.bot && !member.roles.cache.has(roleId));
+
+  let added=0;
+  let failed=0;
+
+  for(const member of targets.values()){
+    try{
+      await member.roles.add(roleId,"Jednorazowe nadanie roli wszystkim członkom serwera");
+      added++;
+    }catch(error){
+      failed++;
+      console.error(`Mass role failed for ${member.user.tag} (${member.id}):`,error?.message||error);
+    }
+  }
+
+  console.log(`MASS_ROLE_DONE role=${role.name} id=${roleId} added=${added} failed=${failed} total=${members.size}`);
+}
+
 client.once("ready",async()=>{
+  await massAssignRoleOnce().catch(error=>console.error("Mass role error:",error));
   const rest=new REST({version:"10"}).setToken(process.env.DISCORD_TOKEN);
   await rest.put(
     Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID,process.env.DISCORD_GUILD_ID),
